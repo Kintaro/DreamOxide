@@ -37,6 +37,19 @@ impl Memory {
         &mut self.data[Memory::map(address) / 2]
     }
 
+    #[inline(always)]
+    pub fn read_u32(&self, address: usize) -> u32 {
+        if let &MemoryField::MemoryCell(v1) = self.access(address) {
+            if let &MemoryField::MemoryCell(v2) = self.access(address + 2) {
+                ((v1 as u32) << 16) | (v2 as u32)
+            } else {
+                0
+            }
+        } else {
+            0
+        }
+    }
+
     pub fn access<'a>(&'a self, address: usize) -> &'a MemoryField {
         &self.data[Memory::map(address) / 2]
     }

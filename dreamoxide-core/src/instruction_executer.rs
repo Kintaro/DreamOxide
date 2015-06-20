@@ -10,7 +10,7 @@ impl InstructionExecuter {
     /// Execute the instruction currently pointed at by PC
     #[inline(always)]
     pub fn execute(cpu: &mut Cpu, mem: &mut Memory, inst: Instruction) {
-        println!("[0x{:08x}] [{:?}] {:?}", cpu.pc, cpu.status, inst);
+        println!("[0x{:8x}] [{:?}] <0x{:8x}> {:?}", cpu.pc, cpu.status, cpu.registers[0].value, inst);
         match inst {
             Instruction::Add(dest, src) => add(dest, src, cpu),
             Instruction::AddConstant(dest, src) => addi(dest, src, cpu),
@@ -52,6 +52,8 @@ impl InstructionExecuter {
 
             Instruction::StsMacL(dest) => stsmacl(dest, cpu),
             Instruction::StsMacH(dest) => stsmach(dest, cpu),
+
+            Instruction::MovLDispLoad(dest, imm) => struct_movldispload(dest, imm, cpu, mem),
             _ => ()
         }
     }
@@ -371,6 +373,16 @@ fn stsmacl(dest: Operand, cpu: &mut Cpu) {
     assert!(dest.is_register());
 
     cpu[dest].value = cpu.macl.value;
+}
+
+fn struct_movldispload(dest: Operand, imm: Operand, cpu: &mut Cpu, mem: &mut Memory) {
+    assert!(dest.is_register());
+    assert!(imm.is_immediate());
+
+    let src = Operand::RegisterOperand((imm.unwrap() & 0xF0) >> 4);
+    let disp = imm.unwrap() as usize & 0xF;
+
+    cpu[dest].value = mem.read_u32(disp * 4 + cpu[src].value as usize);
 }
 
 #[inline(always)]
