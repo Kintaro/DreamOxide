@@ -16,6 +16,8 @@ impl InstructionExecuter {
             Instruction::AddConstant(dest, src) => addi(dest, src, cpu),
             Instruction::AddWithCarry(dest, src) => addc(dest, src, cpu),
             Instruction::AddOverflow(dest, src) => addv(dest, src, cpu),
+            Instruction::MulUW(dest, src) => muluw(dest, src, cpu),
+
             Instruction::And(dest, src) => and(dest, src, cpu),
             Instruction::AndImm(imm) => andi(imm, cpu),
             Instruction::AndB(imm) => andb(imm, cpu),
@@ -25,6 +27,10 @@ impl InstructionExecuter {
             Instruction::Xor(dest, src) => xor(dest, src, cpu),
             Instruction::XorImm(imm) => xori(imm, cpu),
             Instruction::XorB(imm) => xorb(imm, cpu),
+
+            Instruction::Tst(dest, src) => tst(dest, src, cpu),
+            Instruction::TstImm(imm) => tsti(imm, cpu),
+            Instruction::TstB(imm) => tstb(imm, cpu),
 
             Instruction::Shll(dest) => shll(dest, cpu),
             Instruction::Shll2(dest) => shll2(dest, cpu),
@@ -36,11 +42,16 @@ impl InstructionExecuter {
             Instruction::Shlr8(dest) => shlr8(dest, cpu),
             Instruction::Shlr16(dest) => shlr16(dest, cpu),
 
-
             Instruction::Bf(disp) => bf(disp, cpu),
             Instruction::Bt(disp) => bt(disp, cpu),
             Instruction::Mov(dest, src) => mov(dest, src, cpu),
             Instruction::MovImm(dest, imm) => movimm(dest, imm, cpu),
+
+            Instruction::SwapB(dest, src) => swapb(dest, src, cpu),
+            Instruction::SwapW(dest, src) => swapw(dest, src, cpu),
+
+            Instruction::StsMacL(dest) => stsmacl(dest, cpu),
+            Instruction::StsMacH(dest) => stsmach(dest, cpu),
             _ => ()
         }
     }
@@ -105,6 +116,16 @@ fn addv(dest: Operand, src: Operand, cpu: &mut Cpu) {
     } else {
         cpu.status.set_carry_cond(false);
     }
+}
+
+/// Performs a 16 bit unsigned multiplication and stores it
+/// in MACL
+#[inline(always)]
+fn muluw(dest: Operand, src: Operand, cpu: &mut Cpu) {
+    assert!(dest.is_register());
+    assert!(src.is_register());
+
+    cpu.macl.value = (cpu[dest].value & 0x0000FFFF) * (cpu[src].value & 0x0000FFFF);
 }
 
 /// Bitwise AND the registers
@@ -174,6 +195,31 @@ fn xorb(imm: Operand, cpu: &mut Cpu) {
 }
 
 #[inline(always)]
+fn tst(dest: Operand, src: Operand, cpu: &mut Cpu) {
+    assert!(dest.is_register());
+    assert!(src.is_register());
+
+    let temp = cpu[dest].value & cpu[src].value;
+    cpu.status.set_carry_cond(temp == 0);
+}
+
+#[inline(always)]
+fn tsti(imm: Operand, cpu: &mut Cpu) {
+    assert!(imm.is_immediate());
+
+    let temp = cpu[Operand::RegisterOperand(0)].value & (0x000000FF & imm.unwrap() as u32);
+    cpu.status.set_carry_cond(temp == 0);
+}
+
+#[inline(always)]
+fn tstb(imm: Operand, cpu: &mut Cpu) {
+    assert!(imm.is_immediate());
+
+    let temp = cpu[Operand::RegisterOperand(0)].value & (0x000000FF & imm.unwrap() as u32);
+    cpu.status.set_carry_cond(temp == 0);
+}
+
+#[inline(always)]
 fn shll(dest: Operand, cpu: &mut Cpu) {
     assert!(dest.is_register());
 
@@ -213,6 +259,7 @@ fn shlr(dest: Operand, cpu: &mut Cpu) {
 #[inline(always)]
 fn shlr2(dest: Operand, cpu: &mut Cpu) {
     assert!(dest.is_register());
+
     cpu[dest].value >>= 2;
     cpu[dest].value &= 0x3fffffff;
 }
@@ -220,6 +267,7 @@ fn shlr2(dest: Operand, cpu: &mut Cpu) {
 #[inline(always)]
 fn shlr8(dest: Operand, cpu: &mut Cpu) {
     assert!(dest.is_register());
+
     cpu[dest].value >>= 8;
     cpu[dest].value &= 0x00ffffff;
 }
@@ -227,6 +275,7 @@ fn shlr8(dest: Operand, cpu: &mut Cpu) {
 #[inline(always)]
 fn shlr16(dest: Operand, cpu: &mut Cpu) {
     assert!(dest.is_register());
+
     cpu[dest].value >>= 16;
     cpu[dest].value &= 0x0000ffff;
 }
@@ -288,6 +337,40 @@ fn movimm(dest: Operand, imm: Operand, cpu: &mut Cpu) {
     } else {
         cpu[dest].value = 0xFFFFFF00 | imm.unwrap() as u32;
     }
+}
+
+#[inline(always)]
+fn swapb(dest: Operand, src: Operand, cpu: &mut Cpu) {
+    assert!(dest.is_register());
+    assert!(src.is_register());
+
+    let temp0 = cpu[src].value & 0xFFFF0000;
+    let temp1 = (cpu[src].value & 0x000000FF) << 8;
+    cpu[dest].value = (cpu[src].value & 0x0000FF00) >> 8;
+    cpu[dest].value = cpu[dest].value | temp0 | temp1;
+}
+
+#[inline(always)]
+fn swapw(dest: Operand, src: Operand, cpu: &mut Cpu) {
+    assert!(dest.is_register());
+    assert!(src.is_register());
+
+    let temp = (cpu[src].value >> 16) & 0x0000FFFF;
+    cpu[dest].value = (cpu[src].value << 16) | temp;
+}
+
+#[inline(always)]
+fn stsmach(dest: Operand, cpu: &mut Cpu) {
+    assert!(dest.is_register());
+
+    cpu[dest].value = cpu.mach.value;
+}
+
+#[inline(always)]
+fn stsmacl(dest: Operand, cpu: &mut Cpu) {
+    assert!(dest.is_register());
+
+    cpu[dest].value = cpu.macl.value;
 }
 
 #[inline(always)]
