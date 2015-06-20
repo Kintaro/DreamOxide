@@ -33,9 +33,9 @@ impl Cpu {
             &MemoryField::InstructionCell(inst) => {
                 InstructionExecuter::execute(self, mem, inst);
 
-                if !InstructionDecoder::alters_pc(inst) {
+                //if !InstructionDecoder::alters_pc(inst) {
                     self.pc += 2;
-                }
+                //}
             },
             &MemoryField::MemoryCell(val) => {
                 let inst = InstructionDecoder::decode(val);

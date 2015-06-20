@@ -145,6 +145,8 @@ impl InstructionDecoder {
     pub fn alters_pc(inst: Instruction) -> bool {
         match inst {
             Instruction::Bf(_) => true,
+            Instruction::Bt(_) => true,
+            Instruction::Jmp(_) => true,
             _ => false
         }
     }

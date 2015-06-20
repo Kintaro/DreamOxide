@@ -9,7 +9,8 @@ pub struct Memory {
 
 impl Memory {
     pub fn new() -> Memory {
-        Memory { data: (0..0x1800000).map(|_| MemoryField::MemoryCell(0)).collect() }
+        Memory { 
+            data: (0..0x1800000).map(|_| MemoryField::MemoryCell(0)).collect() }
     }
 
     #[inline(always)]
@@ -17,6 +18,7 @@ impl Memory {
         pointer & 0x1FFFFFFF
     }
 
+    #[inline(always)]
     pub fn read_u8(&self, address: usize) -> u8 {
         let offset = 1 - address % 2;
 
@@ -29,7 +31,7 @@ impl Memory {
 
     #[inline(always)]
     pub fn read_u16<'a>(&'a self, address: usize) -> &'a MemoryField {
-        &self.data[address]
+        &self.data[Memory::map(address) / 2]
     }
 
     #[inline(always)]
@@ -41,7 +43,7 @@ impl Memory {
     pub fn read_u32(&self, address: usize) -> u32 {
         if let &MemoryField::MemoryCell(v1) = self.access(address) {
             if let &MemoryField::MemoryCell(v2) = self.access(address + 2) {
-                ((v1 as u32) << 16) | (v2 as u32)
+                ((v2 as u32) << 16) | (v1 as u32)
             } else {
                 0
             }
@@ -50,10 +52,21 @@ impl Memory {
         }
     }
 
+    #[inline(always)]
+    pub fn write_u32(&mut self, address: usize, value: u32) {
+        let v1 = MemoryField::MemoryCell((value << 16) as u16);
+        let v2 = MemoryField::MemoryCell((value & 0x0000FFFF) as u16);
+
+        *self.access_mut(address) = v1;
+        *self.access_mut(address + 2) = v2;
+    }
+
+    #[inline(always)]
     pub fn access<'a>(&'a self, address: usize) -> &'a MemoryField {
         &self.data[Memory::map(address) / 2]
     }
 
+    #[inline(always)]
     pub fn access_mut<'a>(&'a mut self, address: usize) -> &'a mut MemoryField {
         &mut self.data[Memory::map(address) / 2]
     }

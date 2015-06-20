@@ -10,7 +10,11 @@ impl InstructionExecuter {
     /// Execute the instruction currently pointed at by PC
     #[inline(always)]
     pub fn execute(cpu: &mut Cpu, mem: &mut Memory, inst: Instruction) {
-        println!("[0x{:8x}] [{:?}] <0x{:8x}> {:?}", cpu.pc, cpu.status, cpu.registers[0].value, inst);
+        //println!("[0x{:8x}] [{:?}] <0x{:8x}> {:?}",
+                 //cpu.pc,
+                 //cpu.status,
+                 //cpu.registers[0].value,
+                 //inst);
         match inst {
             Instruction::Add(dest, src) => add(dest, src, cpu),
             Instruction::AddConstant(dest, src) => addi(dest, src, cpu),
@@ -36,6 +40,7 @@ impl InstructionExecuter {
             Instruction::Shll2(dest) => shll2(dest, cpu),
             Instruction::Shll8(dest) => shll8(dest, cpu),
             Instruction::Shll16(dest) => shll16(dest, cpu),
+            Instruction::Rotr(dest) => rotr(dest, cpu),
 
             Instruction::Shlr(dest) => shlr(dest, cpu),
             Instruction::Shlr2(dest) => shlr2(dest, cpu),
@@ -44,8 +49,7 @@ impl InstructionExecuter {
 
             Instruction::Bf(disp) => bf(disp, cpu),
             Instruction::Bt(disp) => bt(disp, cpu),
-            Instruction::Mov(dest, src) => mov(dest, src, cpu),
-            Instruction::MovImm(dest, imm) => movimm(dest, imm, cpu),
+            Instruction::Jmp(dest) => jmp(dest, cpu, mem),
 
             Instruction::SwapB(dest, src) => swapb(dest, src, cpu),
             Instruction::SwapW(dest, src) => swapw(dest, src, cpu),
@@ -53,6 +57,8 @@ impl InstructionExecuter {
             Instruction::StsMacL(dest) => stsmacl(dest, cpu),
             Instruction::StsMacH(dest) => stsmach(dest, cpu),
 
+            Instruction::Mov(dest, src) => mov(dest, src, cpu),
+            Instruction::MovImm(dest, imm) => movimm(dest, imm, cpu),
             Instruction::MovLDispLoad(dest, imm) => struct_movldispload(dest, imm, cpu, mem),
             _ => ()
         }
@@ -283,6 +289,13 @@ fn shlr16(dest: Operand, cpu: &mut Cpu) {
 }
 
 #[inline(always)]
+fn rotr(dest: Operand, cpu: &mut Cpu) {
+    assert!(dest.is_register());
+
+    cpu[dest].value = cpu[dest].value.rotate_right(1);
+}
+
+#[inline(always)]
 fn bf(disp: Operand, cpu: &mut Cpu) {
     assert!(disp.is_displacement());
 
@@ -293,9 +306,7 @@ fn bf(disp: Operand, cpu: &mut Cpu) {
     };
 
     if !cpu.status.is_carry() {
-        cpu.pc = cpu.pc + 4 + (d << 1);
-    } else {
-        cpu.pc += 2;
+        cpu.pc = cpu.pc + 2 + (d << 1);
     }
 }
 
@@ -310,10 +321,18 @@ fn bt(disp: Operand, cpu: &mut Cpu) {
     };
 
     if cpu.status.is_carry() {
-        cpu.pc = cpu.pc + 4 + (d << 1);
-    } else {
-        cpu.pc += 2;
+        cpu.pc = cpu.pc + 2 + (d << 1);
     }
+}
+
+#[inline(always)]
+fn jmp(dest: Operand, cpu: &mut Cpu, mem: &mut Memory) {
+    assert!(dest.is_register());
+
+    let temp = cpu.pc;
+    cpu.pc += 2;
+    cpu.step(mem);
+    cpu.pc = cpu[dest].value - 2;
 }
 
 #[inline(always)]
@@ -375,7 +394,17 @@ fn stsmacl(dest: Operand, cpu: &mut Cpu) {
     cpu[dest].value = cpu.macl.value;
 }
 
-fn struct_movldispload(dest: Operand, imm: Operand, cpu: &mut Cpu, mem: &mut Memory) {
+fn struct_movldispstore(dest: Operand, imm: Operand, cpu: &mut Cpu, mem: &mut Memory) {
+    assert!(dest.is_register());
+    assert!(imm.is_immediate());
+
+    let src = Operand::RegisterOperand((imm.unwrap() & 0xF0) >> 4);
+    let disp = imm.unwrap() as usize & 0xF;
+
+    mem.write_u32(disp * 4 + cpu[dest].value as usize, cpu[src].value);
+}
+
+fn struct_movldispload(dest: Operand, imm: Operand, cpu: &mut Cpu, mem: &Memory) {
     assert!(dest.is_register());
     assert!(imm.is_immediate());
 
