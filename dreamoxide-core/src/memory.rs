@@ -30,30 +30,19 @@ impl Memory {
     }
 
     #[inline(always)]
-    pub fn read_u16(&self, address: usize) -> u16 { 
-        if let &MemoryField::MemoryCell(v) = self.access(address) {
-            v
-        } else {
-            0
+    pub fn read_u16(&self, address: usize) -> u16 {
+        match self.access(address) {
+            &MemoryField::MemoryCell(v) => v,
+            _ => panic!("Can only read from memory cell!")
         }
-    }
-
-    #[inline(always)]
-    pub fn read_u16_mut<'a>(&'a mut self, address: usize) -> &'a mut MemoryField {
-        &mut self.data[Memory::map(address) / 2]
     }
 
     #[inline(always)]
     pub fn read_u32(&self, address: usize) -> u32 {
-        if let &MemoryField::MemoryCell(v1) = self.access(address) {
-            if let &MemoryField::MemoryCell(v2) = self.access(address + 2) {
-                ((v2 as u32) << 16) | (v1 as u32)
-            } else {
-                0
-            }
-        } else {
-            0
-        }
+        let v1 = self.read_u16(address) as u32;
+        let v2 = self.read_u16(address + 2) as u32;
+
+        (v2 << 16) | v1
     }
 
     #[inline(always)]
@@ -68,16 +57,19 @@ impl Memory {
 
     #[inline(always)]
     pub fn write_u16(&mut self, address: usize, value: u16) {
+        if address == 0x8c000122 {
+            println!("Writing {:4x}", value);
+        }
         *self.access_mut(address) = MemoryField::MemoryCell(value);
     }
 
     #[inline(always)]
     pub fn write_u32(&mut self, address: usize, value: u32) {
-        let v1 = MemoryField::MemoryCell((value << 16) as u16);
+        let v1 = MemoryField::MemoryCell((value >> 16) as u16);
         let v2 = MemoryField::MemoryCell((value & 0x0000FFFF) as u16);
 
-        *self.access_mut(address) = v1;
-        *self.access_mut(address + 2) = v2;
+        *self.access_mut(address) = v2;
+        *self.access_mut(address + 2) = v1;
     }
 
     #[inline(always)]

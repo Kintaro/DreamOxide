@@ -10,12 +10,13 @@ impl InstructionExecuter {
     /// Execute the instruction currently pointed at by PC
     #[inline(always)]
     pub fn execute(cpu: &mut Cpu, mem: &mut Memory, inst: Instruction) {
-        println!("[0x{:8x}] [{:?}] <0x{:8x}> <0x{:8x}> {:?}",
+        if cpu.pc >= 0x8c0000f2 {
+        println!("[0x{:8x}] [{:?}] <0x{:8x}> {:?}",
                  cpu.pc,
                  cpu.status,
-                 cpu.registers[1].value,
-                 cpu.registers[3].value,
+                 cpu.registers[0].value,
                  inst);
+        }
         match inst {
             Instruction::Add(dest, src) => add(dest, src, cpu),
             Instruction::AddConstant(dest, src) => addi(dest, src, cpu),
@@ -59,12 +60,16 @@ impl InstructionExecuter {
             Instruction::Bra(n, disp) => bra(n, disp, cpu, mem),
             Instruction::Braf(dest) => braf(dest, cpu, mem),
             Instruction::Jmp(dest) => jmp(dest, cpu, mem),
+            Instruction::Jsr(n, disp) => jsr(n, disp, cpu, mem),
 
             Instruction::SwapB(dest, src) => swapb(dest, src, cpu),
             Instruction::SwapW(dest, src) => swapw(dest, src, cpu),
 
             Instruction::StsMacL(dest) => stsmacl(dest, cpu),
             Instruction::StsMacH(dest) => stsmach(dest, cpu),
+
+            Instruction::LdcSr(src) => ldcsr(src, cpu),
+            Instruction::LdcDbr(src) => ldcdbr(src, cpu),
 
             Instruction::MovData(dest, src) => mov(dest, src, cpu),
             Instruction::MovDataBStore(dest, src) => mov_data_store_b(dest, src, cpu, mem),
@@ -75,6 +80,8 @@ impl InstructionExecuter {
             Instruction::MovDataSignWLoad(dest, src) => mov_data_sign_load_w(dest, src, cpu, mem),
             Instruction::MovDataSignWLoad2(dest, src) => mov_data_sign_load_w2(dest, src, cpu, mem),
             Instruction::MovDataSignLLoad(dest, src) => mov_data_sign_load_l(dest, src, cpu, mem),
+            Instruction::MovDataSignLLoad4(dest, src) => mov_data_sign_load_l4(dest, src, cpu, mem),
+            Instruction::MovDataLStore(dest, src) => mov_data_store_l(dest, src, cpu, mem),
             Instruction::MovDataWStore2(dest, src) => mov_data_store_w2(dest, src, cpu, mem),
 
             Instruction::MovStructLoadW(src, disp) => mov_struct_load_w(src, disp, cpu, mem),
@@ -273,7 +280,6 @@ fn tst(dest: Operand, src: Operand, cpu: &mut Cpu) {
     assert!(src.is_register());
 
     let temp = cpu[dest].value & cpu[src].value;
-    println!("Test == {}", temp);
     cpu.status.set_carry_cond(temp == 0);
 }
 
@@ -458,8 +464,43 @@ fn jmp(dest: Operand, cpu: &mut Cpu, mem: &mut Memory) {
 }
 
 #[inline(always)]
+fn jsr(n: Operand, disp: Operand, cpu: &mut Cpu, mem: &mut Memory) {
+    assert!(n.is_register());
+    assert!(disp.is_displacement());
+
+    let d = ((n.unwrap() as u32) << 8) | disp.unwrap() as u32;
+
+    let temp = cpu.pc;
+
+    let off = if d & 0x800 == 0 {
+        0x000000FF & d
+    } else {
+        0xFFFFFF00 | d
+    };
+
+    cpu.pr = cpu.pc + 4;
+    cpu.pc += 2;
+    cpu.step(mem);
+    cpu.pc = temp + 2 + (d * 2);
+}
+
+#[inline(always)]
 fn clrt(cpu: &mut Cpu) {
     cpu.status.set_carry_cond(false);
+}
+
+#[inline(always)]
+fn ldcsr(src: Operand, cpu: &mut Cpu) {
+    assert!(src.is_register());
+
+    cpu.status.value = cpu[src].value;
+}
+
+#[inline(always)]
+fn ldcdbr(src: Operand, cpu: &mut Cpu) {
+    assert!(src.is_register());
+
+    cpu.dbr.value = cpu[src].value;
 }
 
 #[inline(always)]
@@ -513,7 +554,6 @@ fn mov_const_load_w(dest: Operand, disp: Operand, cpu: &mut Cpu, mem: &mut Memor
     assert!(disp.is_displacement());
 
     let address = cpu.pc as usize + 4 + (disp.unwrap() as usize * 2);
-    println!("Loading from {:08x}", address);
     cpu[dest].value = mem.read_u16(address) as u32;
 
     if cpu[dest].value & 0x800 == 0 {
@@ -557,7 +597,9 @@ fn mov_data_sign_load_w2(dest: Operand, src: Operand, cpu: &mut Cpu, mem: &mut M
         cpu[dest].value = v as u32 | 0xFFFF0000;
     }
 
-    cpu[src].value += 2;
+    if dest != src {
+        cpu[src].value += 2;
+    }
 }
 
 #[inline(always)]
@@ -567,6 +609,27 @@ fn mov_data_sign_load_l(dest: Operand, src: Operand, cpu: &mut Cpu, mem: &mut Me
 
     let v = mem.read_u32(cpu[src].value as usize);
     cpu[dest].value = v;
+}
+
+#[inline(always)]
+fn mov_data_sign_load_l4(dest: Operand, src: Operand, cpu: &mut Cpu, mem: &mut Memory) {
+    assert!(dest.is_register());
+    assert!(src.is_register());
+
+    let v = mem.read_u32(cpu[src].value as usize);
+    cpu[dest].value = v;
+
+    if dest != src {
+        cpu[src].value += 4;
+    }
+}
+
+#[inline(always)]
+fn mov_data_store_l(dest: Operand, src: Operand, cpu: &mut Cpu, mem: &mut Memory) {
+    assert!(dest.is_register());
+    assert!(src.is_register());
+
+    mem.write_u32(cpu[dest].value as usize, cpu[src].value);
 }
 
 #[inline(always)]

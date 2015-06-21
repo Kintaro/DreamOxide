@@ -119,7 +119,12 @@ impl InstructionDecoder {
                     0x2 => Instruction::Shlr16(op_n),
                     _   => Instruction::Nop
                 },
+                0xA => match m {
+                    0xF => Instruction::LdcDbr(op_n),
+                    _   => Instruction::Nop
+                },
                 0xB => Instruction::Jmp(op_n),
+                0xE => Instruction::LdcSr(op_n),
                 _   => Instruction::Nop
             },
             0x5 => Instruction::MovStructLoadL(op_n, imm),
@@ -149,6 +154,7 @@ impl InstructionDecoder {
             },
             0x9 => Instruction::MovConstantLoadW(op_n, disp),
             0xA => Instruction::Bra(op_n, disp),
+            0xB => Instruction::Jsr(op_n, disp),
             0xC => match n {
                 0x0 => Instruction::MovGlobalStoreB(disp),
                 0x1 => Instruction::MovGlobalStoreW(disp),

@@ -13,22 +13,26 @@ use std::ops::IndexMut;
 
 pub struct Cpu {
     pub pc: u32,
+    pub pr: u32,
     pub status: StatusRegister,
     pub registers: [GeneralRegister; 16],
     pub fpu_registers: [FloatingPointRegister; 16],
     pub macl: GeneralRegister,
-    pub mach: GeneralRegister
+    pub mach: GeneralRegister,
+    pub dbr: GeneralRegister
 }
 
 impl Cpu {
     pub fn new() -> Cpu {
         Cpu {
             pc: 0xA0000000,
+            pr: 0,
             status: StatusRegister { value: 0 },
             registers: [GeneralRegister { value: 0 }; 16],
             fpu_registers: [FloatingPointRegister { value: 0.0 }; 16],
             macl: GeneralRegister { value: 0 },
-            mach: GeneralRegister { value: 0 }
+            mach: GeneralRegister { value: 0 },
+            dbr: GeneralRegister { value: 0 }
         }
     }
 
