@@ -1,9 +1,5 @@
 use Operand;
 
-use std::fmt::Formatter;
-use std::fmt::Debug;
-use std::fmt::Error;
-
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub enum Instruction {
     Add(Operand, Operand),
@@ -95,25 +91,43 @@ pub enum Instruction {
     Shlr16(Operand),
     Shar(Operand),
     Bf(Operand),
+    Bfs(Operand),
     Bt(Operand),
+    Bts(Operand),
     Bra(Operand, Operand),
     Braf(Operand),
     Jmp(Operand),
     Jsr(Operand, Operand),
+    Rts,
     Clrs,
     Clrt,
     LdcSr(Operand),
     LdcGbr(Operand),
     LdcVbr(Operand),
     LdcDbr(Operand),
+    LdcLSr(Operand),
+    LdcLGbr(Operand),
+    LdcLVbr(Operand),
+    LdcLSsr(Operand),
+    LdcLSpc(Operand),
+    LdsLMacl(Operand),
+    LdsLMach(Operand),
+    LdsLPr(Operand),
     LdsFpscr(Operand),
+    LdsFpscrL(Operand),
+    LdsFpulL(Operand),
     Sets,
     Sett,
     StsMacH(Operand),
     StsMacL(Operand),
     StsPr(Operand),
+    StsLMacH(Operand),
+    StsLMacL(Operand),
+    StsLPr(Operand),
+
     FAdd(Operand, Operand),
     FMovLoadS4(Operand, Operand),
+    FMovStoreD8(Operand, Operand),
     Frchg,
     Pref(Operand),
     Nop

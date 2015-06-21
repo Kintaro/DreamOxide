@@ -48,6 +48,7 @@ impl InstructionDecoder {
                     0x2 => Instruction::StsPr(op_n),
                     _   => Instruction::Nop
                 },
+                0xB => Instruction::Rts,
                 0xC => Instruction::MovDataLoadR0B(op_n, op_m),
                 0xD => Instruction::MovDataLoadR0W(op_n, op_m),
                 0xE => Instruction::MovDataLoadR0L(op_n, op_m),
@@ -96,6 +97,12 @@ impl InstructionDecoder {
                     0x2 => Instruction::Shar(op_n),
                     _ => Instruction::Nop
                 },
+                0x2 => match m {
+                    0x0 => Instruction::StsLMacH(op_n),
+                    0x1 => Instruction::StsLMacL(op_n),
+                    0x2 => Instruction::StsLPr(op_n),
+                    _   => Instruction::Nop
+                },
                 0x4 => match m {
                     0x0 => Instruction::Rotl(op_n),
                     0x2 => Instruction::RotCl(op_n),
@@ -105,6 +112,22 @@ impl InstructionDecoder {
                     0x0 => Instruction::Rotr(op_n),
                     0x1 => Instruction::CmpPl(op_n),
                     0x2 => Instruction::RotCr(op_n),
+                    _   => Instruction::Nop
+                },
+                0x6 => match m {
+                    0x0 => Instruction::LdsLMacl(op_n),
+                    0x1 => Instruction::LdsLMach(op_n),
+                    0x2 => Instruction::LdsLPr(op_n),
+                    0x5 => Instruction::LdsFpulL(op_n),
+                    0x6 => Instruction::LdsFpscrL(op_n),
+                    _   => Instruction::Nop
+                },
+                0x7 => match m {
+                    0x0 => Instruction::LdcLSr(op_n),
+                    0x1 => Instruction::LdcLGbr(op_n),
+                    0x2 => Instruction::LdcLVbr(op_n),
+                    0x3 => Instruction::LdcLSsr(op_n),
+                    0x4 => Instruction::LdcLSpc(op_n),
                     _   => Instruction::Nop
                 },
                 0x8 => match m {
@@ -151,6 +174,8 @@ impl InstructionDecoder {
                 0x8 => Instruction::CmpEqImm(imm),
                 0x9 => Instruction::Bt(disp),
                 0xB => Instruction::Bf(disp),
+                0xD => Instruction::Bts(disp),
+                0xF => Instruction::Bfs(disp),
                 _   => Instruction::Nop
             },
             0x9 => Instruction::MovConstantLoadW(op_n, disp),
@@ -179,6 +204,10 @@ impl InstructionDecoder {
             0xF => match c4 {
                 0x0 => Instruction::FAdd(op_n, op_m),
                 0x9 => Instruction::FMovLoadS4(op_n, op_m),
+                0xB => match m % 2 {
+                    0x0 => Instruction::FMovStoreD8(op_n, Operand::RegisterOperand(m >> 1)),
+                    _   => Instruction::Nop
+                },
                 0xD => match m {
                     0xF => Instruction::Frchg,
                     _   => Instruction::Nop

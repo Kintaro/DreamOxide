@@ -13,11 +13,11 @@ impl InstructionExecuter {
     /// Execute the instruction currently pointed at by PC
     #[inline(always)]
     pub fn execute(cpu: &mut Cpu, mem: &mut Memory, inst: Instruction) {
-        //if cpu.pc >= 0x8c0000f2 {
+        //if cpu.pc >= 0x8c00b6be {
         //println!("[0x{:8x}] [{:?}] <0x{:8x}> {:?}",
                  //cpu.pc,
                  //cpu.status,
-                 //cpu.registers[0].value,
+                 //cpu.registers[1].value,
                  //inst);
         //}
         match inst {
@@ -60,21 +60,40 @@ impl InstructionExecuter {
 
             Instruction::Bf(disp) => bf(disp, cpu),
             Instruction::Bt(disp) => bt(disp, cpu),
+            Instruction::Bfs(disp) => bfs(disp, cpu, mem),
+            Instruction::Bts(disp) => bts(disp, cpu, mem),
             Instruction::Bra(n, disp) => bra(n, disp, cpu, mem),
             Instruction::Braf(dest) => braf(dest, cpu, mem),
             Instruction::Jmp(dest) => jmp(dest, cpu, mem),
             Instruction::Jsr(n, disp) => jsr(n, disp, cpu, mem),
+            Instruction::Rts => rts(cpu, mem),
 
             Instruction::SwapB(dest, src) => swapb(dest, src, cpu),
             Instruction::SwapW(dest, src) => swapw(dest, src, cpu),
 
             Instruction::StsMacL(dest) => stsmacl(dest, cpu),
             Instruction::StsMacH(dest) => stsmach(dest, cpu),
+            Instruction::StsLMacH(dest) => stslmach(dest, cpu, mem),
+            Instruction::StsLMacL(dest) => stslmacl(dest, cpu, mem),
+            Instruction::StsLPr(dest) => stslpr(dest, cpu, mem),
+
+            Instruction::Clrs => clrs(cpu),
+            Instruction::Clrt => clrt(cpu),
 
             Instruction::LdcSr(src) => ldcsr(src, cpu),
             Instruction::LdcDbr(src) => ldcdbr(src, cpu),
+            Instruction::LdcLSr(src) => ldclsr(src, cpu, mem),
+            Instruction::LdcLGbr(src) => ldclgbr(src, cpu, mem),
+            Instruction::LdcLVbr(src) => ldclvbr(src, cpu, mem),
+            Instruction::LdcLSsr(src) => ldclssr(src, cpu, mem),
+            Instruction::LdcLSpc(src) => ldclspc(src, cpu, mem),
 
+            Instruction::LdsLMacl(src) => ldslmacl(src, cpu, mem),
+            Instruction::LdsLMach(src) => ldslmach(src, cpu, mem),
+            Instruction::LdsLPr(src) => ldslpr(src, cpu, mem),
             Instruction::LdsFpscr(src) => ldsfpscr(src, cpu),
+            Instruction::LdsFpscrL(src) => ldsfpscrl(src, cpu, mem),
+            Instruction::LdsFpulL(src) => ldsfpull(src, cpu, mem),
 
             Instruction::MovData(dest, src) => mov(dest, src, cpu),
             Instruction::MovDataBStore(dest, src) => mov_data_store_b(dest, src, cpu, mem),
@@ -88,16 +107,20 @@ impl InstructionExecuter {
             Instruction::MovDataSignLLoad4(dest, src) => mov_data_sign_load_l4(dest, src, cpu, mem),
             Instruction::MovDataLStore(dest, src) => mov_data_store_l(dest, src, cpu, mem),
             Instruction::MovDataWStore2(dest, src) => mov_data_store_w2(dest, src, cpu, mem),
+            Instruction::MovDataLStore4(dest, src) => mov_data_store_l4(dest, src, cpu, mem),
 
             Instruction::MovStructLoadW(src, disp) => mov_struct_load_w(src, disp, cpu, mem),
             Instruction::MovStructLoadL(dest, imm) => mov_struct_load_l(dest, imm, cpu, mem),
             Instruction::MovStructStoreW(dest, disp) => mov_struct_store_w(dest, disp, cpu, mem),
             Instruction::MovStructStoreL(dest, imm) => mov_struct_store_l(dest, imm, cpu, mem),
 
+            Instruction::MovGlobalStoreL(disp) => mov_glob_store_l(disp, cpu, mem),
+
             Instruction::MovA(disp) => mov_a(disp, cpu),
 
             Instruction::FAdd(dest, src) => fadd(dest, src, cpu),
             Instruction::FMovLoadS4(dest, src) => fmov_load_s4(dest, src, cpu, mem),
+            Instruction::FMovStoreD8(dest, src) => fmov_store_d8(dest, src, cpu, mem),
             Instruction::Frchg => frchg(cpu),
 
             Instruction::Pref(_) => (),
@@ -191,9 +214,9 @@ fn macl(dest: Operand, src: Operand, cpu: &mut Cpu, mem: &mut Memory) {
     cpu[src].value += 4;
 
     let r = rm as i64 * rn as i64;
-    let mach = ((cpu.mach.value as i64) << 32) & 0xFFFFFFFF00000000;
-    let macl = (cpu.macl.value as i64) & 0x00000000FFFFFFFF;
-    let mac = (mach | macl) + r;
+    let mach = ((cpu.mach.value as u64) << 32) & 0xFFFFFFFF00000000;
+    let macl = (cpu.macl.value as u64) & 0x00000000FFFFFFFF;
+    let mac = (mach as i64 | macl as i64) + r;
 
     cpu.mach.value = (mac >> 32) as u32;
     cpu.macl.value = (mac & 0xFFFFFFFF) as u32;
@@ -433,6 +456,44 @@ fn bt(disp: Operand, cpu: &mut Cpu) {
 }
 
 #[inline(always)]
+fn bfs(disp: Operand, cpu: &mut Cpu, mem: &mut Memory) {
+    assert!(disp.is_displacement());
+
+    let d = if disp.unwrap() & 0x80 == 0 {
+        0x000000FF & disp.unwrap() as u32
+    } else {
+        0xFFFFFF00 | disp.unwrap() as u32
+    };
+
+    let temp = cpu.pc + 2 + (d << 1);
+    cpu.pc += 2;
+    cpu.step(mem);
+
+    if !cpu.status.is_carry() {
+        cpu.pc = temp;
+    }
+}
+
+#[inline(always)]
+fn bts(disp: Operand, cpu: &mut Cpu, mem: &mut Memory) {
+    assert!(disp.is_displacement());
+
+    let d = if disp.unwrap() & 0x80 == 0 {
+        0x000000FF & disp.unwrap() as u32
+    } else {
+        0xFFFFFF00 | disp.unwrap() as u32
+    };
+
+    let temp = cpu.pc + 2 + (d << 1);
+    cpu.pc += 2;
+    cpu.step(mem);
+
+    if cpu.status.is_carry() {
+        cpu.pc = temp;
+    }
+}
+
+#[inline(always)]
 fn bra(n: Operand, disp: Operand, cpu: &mut Cpu, mem: &mut Memory) {
     assert!(n.is_register());
     assert!(disp.is_displacement());
@@ -488,7 +549,19 @@ fn jsr(n: Operand, disp: Operand, cpu: &mut Cpu, mem: &mut Memory) {
     cpu.pr = cpu.pc + 4;
     cpu.pc += 2;
     cpu.step(mem);
-    cpu.pc = temp + 2 + (d * 2);
+    cpu.pc = temp + 2 + (off * 2);
+}
+
+#[inline(always)]
+fn rts(cpu: &mut Cpu, mem: &mut Memory) {
+    cpu.pc += 2;
+    cpu.step(mem);
+    cpu.pc = cpu.pr;
+}
+
+#[inline(always)]
+fn clrs(cpu: &mut Cpu) {
+    cpu.status.set_carry_cond(false);
 }
 
 #[inline(always)]
@@ -511,10 +584,101 @@ fn ldcdbr(src: Operand, cpu: &mut Cpu) {
 }
 
 #[inline(always)]
+fn ldclsr(src: Operand, cpu: &mut Cpu, mem: &mut Memory) {
+    assert!(src.is_register());
+
+    let v = mem.read_u32(cpu[src].value as usize);
+    cpu[src].value += 4;
+    cpu.status.value = v;
+}
+
+#[inline(always)]
+fn ldclgbr(src: Operand, cpu: &mut Cpu, mem: &mut Memory) {
+    assert!(src.is_register());
+
+    let v = mem.read_u32(cpu[src].value as usize);
+    cpu[src].value += 4;
+    cpu.gbr.value = v;
+}
+#[inline(always)]
+fn ldclvbr(src: Operand, cpu: &mut Cpu, mem: &mut Memory) {
+    assert!(src.is_register());
+
+    let v = mem.read_u32(cpu[src].value as usize);
+    cpu[src].value += 4;
+    cpu.vbr.value = v;
+}
+
+#[inline(always)]
+fn ldclssr(src: Operand, cpu: &mut Cpu, mem: &mut Memory) {
+    assert!(src.is_register());
+
+    let v = mem.read_u32(cpu[src].value as usize);
+    cpu[src].value += 4;
+    cpu.ssr.value = v;
+}
+
+#[inline(always)]
+fn ldclspc(src: Operand, cpu: &mut Cpu, mem: &mut Memory) {
+    assert!(src.is_register());
+
+    let v = mem.read_u32(cpu[src].value as usize);
+    cpu[src].value += 4;
+    cpu.spc.value = v;
+}
+
+
+
+#[inline(always)]
+fn ldslmacl(src: Operand, cpu: &mut Cpu, mem: &mut Memory) {
+    assert!(src.is_register());
+
+    let v = mem.read_u32(cpu[src].value as usize);
+    cpu[src].value += 4;
+    cpu.macl.value = v;
+}
+
+#[inline(always)]
+fn ldslmach(src: Operand, cpu: &mut Cpu, mem: &mut Memory) {
+    assert!(src.is_register());
+
+    let v = mem.read_u32(cpu[src].value as usize);
+    cpu[src].value += 4;
+    cpu.mach.value = v;
+}
+
+#[inline(always)]
+fn ldslpr(src: Operand, cpu: &mut Cpu, mem: &mut Memory) {
+    assert!(src.is_register());
+
+    let v = mem.read_u32(cpu[src].value as usize);
+    cpu[src].value += 4;
+    cpu.pr = v;
+}
+
+#[inline(always)]
 fn ldsfpscr(src: Operand, cpu: &mut Cpu) {
     assert!(src.is_register());
 
     cpu.fpscr.value = cpu[src].value & FPSCR_MASK;
+}
+
+#[inline(always)]
+fn ldsfpscrl(src: Operand, cpu: &mut Cpu, mem: &mut Memory) {
+    assert!(src.is_register());
+
+    let v = mem.read_u32(cpu[src].value as usize);
+    cpu[src].value += 4;
+    cpu.fpscr.value = v;
+}
+
+#[inline(always)]
+fn ldsfpull(src: Operand, cpu: &mut Cpu, mem: &mut Memory) {
+    assert!(src.is_register());
+
+    let v = mem.read_u32(cpu[src].value as usize);
+    cpu[src].value += 4;
+    cpu.fpul.value = v;
 }
 
 #[inline(always)]
@@ -540,15 +704,6 @@ fn mov_data_store_w(dest: Operand, src: Operand, cpu: &mut Cpu, mem: &mut Memory
 
     mem.write_u16(cpu[dest].value as usize, cpu[src].value as u16);
 }
-
-#[inline(always)]
-fn mov_store_l(dest: Operand, src: Operand, cpu: &mut Cpu, mem: &mut Memory) {
-    assert!(dest.is_register());
-    assert!(src.is_register());
-
-    mem.write_u32(cpu[dest].value as usize, cpu[src].value);
-}
-
 
 #[inline(always)]
 fn mov_const_sign(dest: Operand, imm: Operand, cpu: &mut Cpu) {
@@ -592,7 +747,7 @@ fn mov_data_sign_load_w(dest: Operand, src: Operand, cpu: &mut Cpu, mem: &mut Me
     assert!(src.is_register());
 
     let v = mem.read_u16(cpu[src].value as usize);
-    if (v & 0x8000 == 0) {
+    if v & 0x8000 == 0 {
         cpu[dest].value = v as u32 & 0x0000FFFF;
     } else {
         cpu[dest].value = v as u32 | 0xFFFF0000;
@@ -605,7 +760,7 @@ fn mov_data_sign_load_w2(dest: Operand, src: Operand, cpu: &mut Cpu, mem: &mut M
     assert!(src.is_register());
 
     let v = mem.read_u16(cpu[src].value as usize);
-    if (v & 0x8000 == 0) {
+    if v & 0x8000 == 0 {
         cpu[dest].value = v as u32 & 0x0000FFFF;
     } else {
         cpu[dest].value = v as u32 | 0xFFFF0000;
@@ -653,6 +808,15 @@ fn mov_data_store_w2(dest: Operand, src: Operand, cpu: &mut Cpu, mem: &mut Memor
 
     mem.write_u16(cpu[dest].value as usize - 2, cpu[src].value as u16);
     cpu[dest].value -= 2;
+}
+
+#[inline(always)]
+fn mov_data_store_l4(dest: Operand, src: Operand, cpu: &mut Cpu, mem: &mut Memory) {
+    assert!(dest.is_register());
+    assert!(src.is_register());
+
+    mem.write_u32(cpu[dest].value as usize - 4, cpu[src].value);
+    cpu[dest].value -= 4;
 }
 
 #[inline(always)]
@@ -704,6 +868,14 @@ fn mov_struct_store_l(dest: Operand, imm: Operand, cpu: &mut Cpu, mem: &mut Memo
 }
 
 #[inline(always)]
+fn mov_glob_store_l(disp: Operand, cpu: &mut Cpu, mem: &mut Memory) {
+    assert!(disp.is_displacement());
+
+    let address = disp.unwrap() as usize * 4 + cpu.gbr.value as usize;
+    mem.write_u32(address, cpu[Operand::RegisterOperand(0)].value);
+}
+
+#[inline(always)]
 fn mov_a(disp: Operand, cpu: &mut Cpu) {
     assert!(disp.is_displacement());
 
@@ -748,6 +920,30 @@ fn stsmacl(dest: Operand, cpu: &mut Cpu) {
 }
 
 #[inline(always)]
+fn stslmach(dest: Operand, cpu: &mut Cpu, mem: &mut Memory) {
+    assert!(dest.is_register());
+
+    cpu[dest].value -= 4;
+    mem.write_u32(cpu[dest].value as usize, cpu.mach.value);
+}
+
+#[inline(always)]
+fn stslmacl(dest: Operand, cpu: &mut Cpu, mem: &mut Memory) {
+    assert!(dest.is_register());
+
+    cpu[dest].value -= 4;
+    mem.write_u32(cpu[dest].value as usize, cpu.macl.value);
+}
+
+#[inline(always)]
+fn stslpr(dest: Operand, cpu: &mut Cpu, mem: &mut Memory) {
+    assert!(dest.is_register());
+
+    cpu[dest].value -= 4;
+    mem.write_u32(cpu[dest].value as usize, cpu.pr);
+}
+
+#[inline(always)]
 fn fadd(dest: Operand, src: Operand, cpu: &mut Cpu) {
     assert!(dest.is_register());
     assert!(src.is_register());
@@ -768,10 +964,22 @@ fn fmov_load_s4(dest: Operand, src: Operand, cpu: &mut Cpu, mem: &mut Memory) {
 }
 
 #[inline(always)]
-fn frchg(cpu: &mut Cpu) {
-    cpu.fpscr.value ^= 0x00200000;
+fn fmov_store_d8(dest: Operand, src: Operand, cpu: &mut Cpu, mem: &mut Memory) {
+    assert!(dest.is_register());
+    assert!(src.is_register());
+
+    cpu[dest].value -= 8;
+    let src1 = Operand::RegisterOperand(src.unwrap() + 1);
+    unsafe {
+        let h = transmute::<f32, u32>(cpu.fpu(src1).value);
+        let l = transmute::<f32, u32>(cpu.fpu(src).value);
+
+        mem.write_u32(cpu[dest].value as usize, h);
+        mem.write_u32(cpu[dest].value as usize + 4, l);
+    }
 }
 
 #[inline(always)]
-fn nop() {
+fn frchg(cpu: &mut Cpu) {
+    cpu.fpscr.value ^= 0x00200000;
 }

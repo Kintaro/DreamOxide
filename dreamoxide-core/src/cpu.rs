@@ -22,7 +22,12 @@ pub struct Cpu {
     pub macl: GeneralRegister,
     pub mach: GeneralRegister,
     pub dbr: GeneralRegister,
+    pub gbr: GeneralRegister,
+    pub vbr: GeneralRegister,
+    pub ssr: GeneralRegister,
+    pub spc: GeneralRegister,
     pub fpscr: GeneralRegister,
+    pub fpul: GeneralRegister,
 }
 
 impl Cpu {
@@ -36,7 +41,12 @@ impl Cpu {
             macl: GeneralRegister { value: 0 },
             mach: GeneralRegister { value: 0 },
             dbr: GeneralRegister { value: 0 },
-            fpscr: GeneralRegister { value: 0 }
+            gbr: GeneralRegister { value: 0 },
+            vbr: GeneralRegister { value: 0 },
+            ssr: GeneralRegister { value: 0 },
+            spc: GeneralRegister { value: 0 },
+            fpscr: GeneralRegister { value: 0 },
+            fpul: GeneralRegister { value: 0 }
         }
     }
 

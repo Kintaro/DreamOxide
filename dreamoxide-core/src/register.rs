@@ -54,6 +54,14 @@ impl StatusRegister {
         self.value & 0x2 > 0
     }
 
+    pub fn set_saturated_cond(&mut self, val: bool) {
+        if val {
+            self.value |= 2;
+        } else {
+            self.value &= 0xFFFFFFFD;
+        }
+    }
+
     pub fn is_carry(&self) -> bool {
         self.value & 0x1 > 0
     }
