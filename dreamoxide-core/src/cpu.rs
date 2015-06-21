@@ -11,6 +11,8 @@ use Operand;
 use std::ops::Index;
 use std::ops::IndexMut;
 
+pub const FPSCR_MASK : u32 = 0x003FFFFF;
+
 pub struct Cpu {
     pub pc: u32,
     pub pr: u32,
@@ -19,7 +21,8 @@ pub struct Cpu {
     pub fpu_registers: [FloatingPointRegister; 16],
     pub macl: GeneralRegister,
     pub mach: GeneralRegister,
-    pub dbr: GeneralRegister
+    pub dbr: GeneralRegister,
+    pub fpscr: GeneralRegister,
 }
 
 impl Cpu {
@@ -32,7 +35,8 @@ impl Cpu {
             fpu_registers: [FloatingPointRegister { value: 0.0 }; 16],
             macl: GeneralRegister { value: 0 },
             mach: GeneralRegister { value: 0 },
-            dbr: GeneralRegister { value: 0 }
+            dbr: GeneralRegister { value: 0 },
+            fpscr: GeneralRegister { value: 0 }
         }
     }
 

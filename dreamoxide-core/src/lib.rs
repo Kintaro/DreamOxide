@@ -10,6 +10,7 @@ pub use memory_field::MemoryField;
 pub use memory::Memory;
 pub use instruction_executer::InstructionExecuter;
 pub use cpu::Cpu;
+pub use cpu::FPSCR_MASK;
 pub use instruction_decoder::InstructionDecoder;
 
 pub mod operand;

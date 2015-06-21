@@ -120,6 +120,7 @@ impl InstructionDecoder {
                     _   => Instruction::Nop
                 },
                 0xA => match m {
+                    0x6 => Instruction::LdsFpscr(op_n),
                     0xF => Instruction::LdcDbr(op_n),
                     _   => Instruction::Nop
                 },
@@ -177,6 +178,11 @@ impl InstructionDecoder {
             0xE => Instruction::MovConstantSign(op_n, imm),
             0xF => match c4 {
                 0x0 => Instruction::FAdd(op_n, op_m),
+                0x9 => Instruction::FMovLoadS4(op_n, op_m),
+                0xD => match m {
+                    0xF => Instruction::Frchg,
+                    _   => Instruction::Nop
+                },
                 _   => Instruction::Nop
             },
             _ => Instruction::Nop

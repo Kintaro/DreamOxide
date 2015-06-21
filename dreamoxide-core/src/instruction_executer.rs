@@ -2,6 +2,9 @@ use Cpu;
 use Memory;
 use Instruction;
 use Operand;
+use FPSCR_MASK;
+
+use std::mem::transmute;
 
 /// Handles execution of stored instructions
 pub struct InstructionExecuter;
@@ -10,13 +13,13 @@ impl InstructionExecuter {
     /// Execute the instruction currently pointed at by PC
     #[inline(always)]
     pub fn execute(cpu: &mut Cpu, mem: &mut Memory, inst: Instruction) {
-        if cpu.pc >= 0x8c0000f2 {
-        println!("[0x{:8x}] [{:?}] <0x{:8x}> {:?}",
-                 cpu.pc,
-                 cpu.status,
-                 cpu.registers[0].value,
-                 inst);
-        }
+        //if cpu.pc >= 0x8c0000f2 {
+        //println!("[0x{:8x}] [{:?}] <0x{:8x}> {:?}",
+                 //cpu.pc,
+                 //cpu.status,
+                 //cpu.registers[0].value,
+                 //inst);
+        //}
         match inst {
             Instruction::Add(dest, src) => add(dest, src, cpu),
             Instruction::AddConstant(dest, src) => addi(dest, src, cpu),
@@ -71,6 +74,8 @@ impl InstructionExecuter {
             Instruction::LdcSr(src) => ldcsr(src, cpu),
             Instruction::LdcDbr(src) => ldcdbr(src, cpu),
 
+            Instruction::LdsFpscr(src) => ldsfpscr(src, cpu),
+
             Instruction::MovData(dest, src) => mov(dest, src, cpu),
             Instruction::MovDataBStore(dest, src) => mov_data_store_b(dest, src, cpu, mem),
             Instruction::MovDataWStore(dest, src) => mov_data_store_w(dest, src, cpu, mem),
@@ -92,6 +97,8 @@ impl InstructionExecuter {
             Instruction::MovA(disp) => mov_a(disp, cpu),
 
             Instruction::FAdd(dest, src) => fadd(dest, src, cpu),
+            Instruction::FMovLoadS4(dest, src) => fmov_load_s4(dest, src, cpu, mem),
+            Instruction::Frchg => frchg(cpu),
 
             Instruction::Pref(_) => (),
             Instruction::Nop => (),
@@ -504,6 +511,13 @@ fn ldcdbr(src: Operand, cpu: &mut Cpu) {
 }
 
 #[inline(always)]
+fn ldsfpscr(src: Operand, cpu: &mut Cpu) {
+    assert!(src.is_register());
+
+    cpu.fpscr.value = cpu[src].value & FPSCR_MASK;
+}
+
+#[inline(always)]
 fn mov(dest: Operand, src: Operand, cpu: &mut Cpu) {
     assert!(dest.is_register());
     assert!(src.is_register());
@@ -739,6 +753,23 @@ fn fadd(dest: Operand, src: Operand, cpu: &mut Cpu) {
     assert!(src.is_register());
 
     cpu.fpu_mut(dest).value += cpu.fpu(src).value;
+}
+
+#[inline(always)]
+fn fmov_load_s4(dest: Operand, src: Operand, cpu: &mut Cpu, mem: &mut Memory) {
+    assert!(dest.is_register());
+    assert!(src.is_register());
+
+    let v = mem.read_u32(cpu[src].value as usize);
+    unsafe {
+        cpu.fpu_mut(dest).value = transmute(v);
+    }
+    cpu[src].value += 4;
+}
+
+#[inline(always)]
+fn frchg(cpu: &mut Cpu) {
+    cpu.fpscr.value ^= 0x00200000;
 }
 
 #[inline(always)]

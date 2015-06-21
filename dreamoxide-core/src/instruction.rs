@@ -106,12 +106,15 @@ pub enum Instruction {
     LdcGbr(Operand),
     LdcVbr(Operand),
     LdcDbr(Operand),
+    LdsFpscr(Operand),
     Sets,
     Sett,
     StsMacH(Operand),
     StsMacL(Operand),
     StsPr(Operand),
     FAdd(Operand, Operand),
+    FMovLoadS4(Operand, Operand),
+    Frchg,
     Pref(Operand),
     Nop
 }
