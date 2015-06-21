@@ -13,7 +13,7 @@ impl InstructionExecuter {
     /// Execute the instruction currently pointed at by PC
     #[inline(always)]
     pub fn execute(cpu: &mut Cpu, mem: &mut Memory, inst: Instruction) {
-        //if cpu.pc >= 0x8c00b6be {
+        //if cpu.pc >= 0x8c00b57a {
         //println!("[0x{:8x}] [{:?}] <0x{:8x}> {:?}",
                  //cpu.pc,
                  //cpu.status,
@@ -64,8 +64,9 @@ impl InstructionExecuter {
             Instruction::Bts(disp) => bts(disp, cpu, mem),
             Instruction::Bra(n, disp) => bra(n, disp, cpu, mem),
             Instruction::Braf(dest) => braf(dest, cpu, mem),
+            Instruction::Bsr(n, disp) => bsr(n, disp, cpu, mem),
             Instruction::Jmp(dest) => jmp(dest, cpu, mem),
-            Instruction::Jsr(n, disp) => jsr(n, disp, cpu, mem),
+            Instruction::Jsr(dest) => jsr(dest, cpu, mem),
             Instruction::Rts => rts(cpu, mem),
 
             Instruction::SwapB(dest, src) => swapb(dest, src, cpu),
@@ -119,7 +120,9 @@ impl InstructionExecuter {
             Instruction::MovA(disp) => mov_a(disp, cpu),
 
             Instruction::FAdd(dest, src) => fadd(dest, src, cpu),
+            Instruction::FMov(dest, src) => fmov(dest, src, cpu),
             Instruction::FMovLoadS4(dest, src) => fmov_load_s4(dest, src, cpu, mem),
+            Instruction::FMovStoreS4(dest, src) => fmov_store_s4(dest, src, cpu, mem),
             Instruction::FMovStoreD8(dest, src) => fmov_store_d8(dest, src, cpu, mem),
             Instruction::Frchg => frchg(cpu),
 
@@ -522,6 +525,26 @@ fn braf(dest: Operand, cpu: &mut Cpu, mem: &mut Memory) {
 }
 
 #[inline(always)]
+fn bsr(n: Operand, d: Operand, cpu: &mut Cpu, mem: &mut Memory) {
+    assert!(n.is_register());
+    assert!(d.is_displacement());
+
+    let temp = cpu.pc;
+
+    let v = ((n.unwrap() as u32) << 8) | d.unwrap() as u32;
+    let disp = if v & 0x800 == 0 {
+        v & 0x000000FF
+    } else {
+        v | 0xFFFFFF00
+    };
+
+    cpu.pr = cpu.pc + 4;
+    cpu.pc += 2;
+    cpu.step(mem);
+    cpu.pc = temp + 2 + (disp << 1);
+}
+
+#[inline(always)]
 fn jmp(dest: Operand, cpu: &mut Cpu, mem: &mut Memory) {
     assert!(dest.is_register());
 
@@ -532,31 +555,23 @@ fn jmp(dest: Operand, cpu: &mut Cpu, mem: &mut Memory) {
 }
 
 #[inline(always)]
-fn jsr(n: Operand, disp: Operand, cpu: &mut Cpu, mem: &mut Memory) {
-    assert!(n.is_register());
-    assert!(disp.is_displacement());
+fn jsr(dest: Operand, cpu: &mut Cpu, mem: &mut Memory) {
+    assert!(dest.is_register());
 
-    let d = ((n.unwrap() as u32) << 8) | disp.unwrap() as u32;
-
-    let temp = cpu.pc;
-
-    let off = if d & 0x800 == 0 {
-        0x000000FF & d
-    } else {
-        0xFFFFFF00 | d
-    };
+    let temp = cpu[dest].value;
 
     cpu.pr = cpu.pc + 4;
     cpu.pc += 2;
     cpu.step(mem);
-    cpu.pc = temp + 2 + (off * 2);
+    cpu.pc = temp - 2;
 }
 
 #[inline(always)]
 fn rts(cpu: &mut Cpu, mem: &mut Memory) {
+    let temp = cpu.pr;
     cpu.pc += 2;
     cpu.step(mem);
-    cpu.pc = cpu.pr;
+    cpu.pc = temp - 2;
 }
 
 #[inline(always)]
@@ -952,6 +967,14 @@ fn fadd(dest: Operand, src: Operand, cpu: &mut Cpu) {
 }
 
 #[inline(always)]
+fn fmov(dest: Operand, src: Operand, cpu: &mut Cpu) {
+    assert!(dest.is_register());
+    assert!(src.is_register());
+
+    cpu.fpu_mut(dest).value = cpu.fpu(src).value;
+}
+
+#[inline(always)]
 fn fmov_load_s4(dest: Operand, src: Operand, cpu: &mut Cpu, mem: &mut Memory) {
     assert!(dest.is_register());
     assert!(src.is_register());
@@ -961,6 +984,19 @@ fn fmov_load_s4(dest: Operand, src: Operand, cpu: &mut Cpu, mem: &mut Memory) {
         cpu.fpu_mut(dest).value = transmute(v);
     }
     cpu[src].value += 4;
+}
+
+#[inline(always)]
+fn fmov_store_s4(dest: Operand, src: Operand, cpu: &mut Cpu, mem: &mut Memory) {
+    assert!(dest.is_register());
+    assert!(src.is_register());
+
+    cpu[dest].value -= 4;
+    unsafe {
+        let v = transmute::<f32, u32>(cpu.fpu(src).value);
+
+        mem.write_u32(cpu[dest].value as usize, v);
+    }
 }
 
 #[inline(always)]

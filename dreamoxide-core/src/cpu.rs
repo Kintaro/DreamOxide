@@ -17,8 +17,8 @@ pub struct Cpu {
     pub pc: u32,
     pub pr: u32,
     pub status: StatusRegister,
-    pub registers: [GeneralRegister; 16],
-    pub fpu_registers: [FloatingPointRegister; 16],
+    pub registers: [GeneralRegister; 32],
+    pub fpu_registers: [FloatingPointRegister; 32],
     pub macl: GeneralRegister,
     pub mach: GeneralRegister,
     pub dbr: GeneralRegister,
@@ -36,8 +36,8 @@ impl Cpu {
             pc: 0xA0000000,
             pr: 0,
             status: StatusRegister { value: 0 },
-            registers: [GeneralRegister { value: 0 }; 16],
-            fpu_registers: [FloatingPointRegister { value: 0.0 }; 16],
+            registers: [GeneralRegister { value: 0 }; 32],
+            fpu_registers: [FloatingPointRegister { value: 0.0 }; 32],
             macl: GeneralRegister { value: 0 },
             mach: GeneralRegister { value: 0 },
             dbr: GeneralRegister { value: 0 },
@@ -84,12 +84,14 @@ impl Index<Operand> for Cpu {
     type Output = GeneralRegister;
 
     fn index<'a>(&'a self, _index: Operand) -> &'a GeneralRegister {
-        &self.registers[_index.unwrap() as usize]
+        let bank = if self.status.is_banked() { 16 } else { 0 };
+        &self.registers[bank + _index.unwrap() as usize]
     }
 }
 
 impl IndexMut<Operand> for Cpu {
     fn index_mut<'a>(&'a mut self, _index: Operand) -> &'a mut GeneralRegister {
-        &mut self.registers[_index.unwrap() as usize]
+        let bank = if self.status.is_banked() { 16 } else { 0 };
+        &mut self.registers[bank + _index.unwrap() as usize]
     }
 }
