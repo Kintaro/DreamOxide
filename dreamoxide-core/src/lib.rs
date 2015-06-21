@@ -5,6 +5,7 @@ pub use instruction::Instruction;
 pub use instruction::InstructionGroup;
 pub use register::StatusRegister;
 pub use register::GeneralRegister;
+pub use register::FloatingPointRegister;
 pub use memory_field::MemoryField;
 pub use memory::Memory;
 pub use instruction_executer::InstructionExecuter;

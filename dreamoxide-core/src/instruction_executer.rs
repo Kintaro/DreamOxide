@@ -10,17 +10,19 @@ impl InstructionExecuter {
     /// Execute the instruction currently pointed at by PC
     #[inline(always)]
     pub fn execute(cpu: &mut Cpu, mem: &mut Memory, inst: Instruction) {
-        //println!("[0x{:8x}] [{:?}] <0x{:8x}> {:?}",
-                 //cpu.pc,
-                 //cpu.status,
-                 //cpu.registers[0].value,
-                 //inst);
+        println!("[0x{:8x}] [{:?}] <0x{:8x}> <0x{:8x}> {:?}",
+                 cpu.pc,
+                 cpu.status,
+                 cpu.registers[1].value,
+                 cpu.registers[3].value,
+                 inst);
         match inst {
             Instruction::Add(dest, src) => add(dest, src, cpu),
             Instruction::AddConstant(dest, src) => addi(dest, src, cpu),
             Instruction::AddWithCarry(dest, src) => addc(dest, src, cpu),
             Instruction::AddOverflow(dest, src) => addv(dest, src, cpu),
             Instruction::MulUW(dest, src) => muluw(dest, src, cpu),
+            Instruction::MacL(dest, src) => macl(dest, src, cpu, mem),
 
             Instruction::And(dest, src) => and(dest, src, cpu),
             Instruction::AndImm(imm) => andi(imm, cpu),
@@ -32,23 +34,30 @@ impl InstructionExecuter {
             Instruction::XorImm(imm) => xori(imm, cpu),
             Instruction::XorB(imm) => xorb(imm, cpu),
 
+            Instruction::CmpHi(dest, src) => cmphi(dest, src, cpu),
+            Instruction::CmpPz(src) => cmppz(src, cpu),
             Instruction::Tst(dest, src) => tst(dest, src, cpu),
             Instruction::TstImm(imm) => tsti(imm, cpu),
             Instruction::TstB(imm) => tstb(imm, cpu),
+            Instruction::Dt(dest) => dt(dest, cpu),
 
             Instruction::Shll(dest) => shll(dest, cpu),
             Instruction::Shll2(dest) => shll2(dest, cpu),
             Instruction::Shll8(dest) => shll8(dest, cpu),
             Instruction::Shll16(dest) => shll16(dest, cpu),
-            Instruction::Rotr(dest) => rotr(dest, cpu),
 
             Instruction::Shlr(dest) => shlr(dest, cpu),
             Instruction::Shlr2(dest) => shlr2(dest, cpu),
             Instruction::Shlr8(dest) => shlr8(dest, cpu),
             Instruction::Shlr16(dest) => shlr16(dest, cpu),
 
+            Instruction::Rotr(dest) => rotr(dest, cpu),
+            Instruction::Shar(dest) => shar(dest, cpu),
+
             Instruction::Bf(disp) => bf(disp, cpu),
             Instruction::Bt(disp) => bt(disp, cpu),
+            Instruction::Bra(n, disp) => bra(n, disp, cpu, mem),
+            Instruction::Braf(dest) => braf(dest, cpu, mem),
             Instruction::Jmp(dest) => jmp(dest, cpu, mem),
 
             Instruction::SwapB(dest, src) => swapb(dest, src, cpu),
@@ -57,10 +66,30 @@ impl InstructionExecuter {
             Instruction::StsMacL(dest) => stsmacl(dest, cpu),
             Instruction::StsMacH(dest) => stsmach(dest, cpu),
 
-            Instruction::Mov(dest, src) => mov(dest, src, cpu),
-            Instruction::MovImm(dest, imm) => movimm(dest, imm, cpu),
-            Instruction::MovLDispLoad(dest, imm) => struct_movldispload(dest, imm, cpu, mem),
-            _ => ()
+            Instruction::MovData(dest, src) => mov(dest, src, cpu),
+            Instruction::MovDataBStore(dest, src) => mov_data_store_b(dest, src, cpu, mem),
+            Instruction::MovDataWStore(dest, src) => mov_data_store_w(dest, src, cpu, mem),
+            Instruction::MovConstantSign(dest, imm) => mov_const_sign(dest, imm, cpu),
+            Instruction::MovConstantLoadW(dest, disp) => mov_const_load_w(dest, disp, cpu, mem),
+            Instruction::MovConstantLoadL(dest, disp) => mov_const_load_l(dest, disp, cpu, mem),
+            Instruction::MovDataSignWLoad(dest, src) => mov_data_sign_load_w(dest, src, cpu, mem),
+            Instruction::MovDataSignWLoad2(dest, src) => mov_data_sign_load_w2(dest, src, cpu, mem),
+            Instruction::MovDataSignLLoad(dest, src) => mov_data_sign_load_l(dest, src, cpu, mem),
+            Instruction::MovDataWStore2(dest, src) => mov_data_store_w2(dest, src, cpu, mem),
+
+            Instruction::MovStructLoadW(src, disp) => mov_struct_load_w(src, disp, cpu, mem),
+            Instruction::MovStructLoadL(dest, imm) => mov_struct_load_l(dest, imm, cpu, mem),
+            Instruction::MovStructStoreW(dest, disp) => mov_struct_store_w(dest, disp, cpu, mem),
+            Instruction::MovStructStoreL(dest, imm) => mov_struct_store_l(dest, imm, cpu, mem),
+
+            Instruction::MovA(disp) => mov_a(disp, cpu),
+
+            Instruction::FAdd(dest, src) => fadd(dest, src, cpu),
+
+            Instruction::Pref(_) => (),
+            Instruction::Nop => (),
+
+            _ => panic!("Something went wrong!")
         }
     }
 }
@@ -136,6 +165,26 @@ fn muluw(dest: Operand, src: Operand, cpu: &mut Cpu) {
     cpu.macl.value = (cpu[dest].value & 0x0000FFFF) * (cpu[src].value & 0x0000FFFF);
 }
 
+#[inline(always)]
+fn macl(dest: Operand, src: Operand, cpu: &mut Cpu, mem: &mut Memory) {
+    assert!(dest.is_register());
+    assert!(src.is_register());
+
+    let rm = mem.read_u32(cpu[dest].value as usize) as i32;
+    let rn = mem.read_u32(cpu[dest].value as usize) as i32;
+
+    cpu[dest].value += 4;
+    cpu[src].value += 4;
+
+    let r = rm as i64 * rn as i64;
+    let mach = ((cpu.mach.value as i64) << 32) & 0xFFFFFFFF00000000;
+    let macl = (cpu.macl.value as i64) & 0x00000000FFFFFFFF;
+    let mac = (mach | macl) + r;
+
+    cpu.mach.value = (mac >> 32) as u32;
+    cpu.macl.value = (mac & 0xFFFFFFFF) as u32;
+}
+
 /// Bitwise AND the registers
 #[inline(always)]
 fn and(dest: Operand, src: Operand, cpu: &mut Cpu) {
@@ -203,11 +252,28 @@ fn xorb(imm: Operand, cpu: &mut Cpu) {
 }
 
 #[inline(always)]
+fn cmphi(dest: Operand, src: Operand, cpu: &mut Cpu) {
+    assert!(src.is_register());
+
+    let v = cpu[dest].value > cpu[src].value;
+    cpu.status.set_carry_cond(v);
+}
+
+#[inline(always)]
+fn cmppz(src: Operand, cpu: &mut Cpu) {
+    assert!(src.is_register());
+
+    let val = cpu[src].value as i32 >= 0;
+    cpu.status.set_carry_cond(val);
+}
+
+#[inline(always)]
 fn tst(dest: Operand, src: Operand, cpu: &mut Cpu) {
     assert!(dest.is_register());
     assert!(src.is_register());
 
     let temp = cpu[dest].value & cpu[src].value;
+    println!("Test == {}", temp);
     cpu.status.set_carry_cond(temp == 0);
 }
 
@@ -225,6 +291,15 @@ fn tstb(imm: Operand, cpu: &mut Cpu) {
 
     let temp = cpu[Operand::RegisterOperand(0)].value & (0x000000FF & imm.unwrap() as u32);
     cpu.status.set_carry_cond(temp == 0);
+}
+
+#[inline(always)]
+fn dt(dest: Operand, cpu: &mut Cpu) {
+    assert!(dest.is_register());
+
+    cpu[dest].value -= 1;
+    let v = cpu[dest].value;
+    cpu.status.set_carry_cond(v == 0);
 }
 
 #[inline(always)]
@@ -292,7 +367,26 @@ fn shlr16(dest: Operand, cpu: &mut Cpu) {
 fn rotr(dest: Operand, cpu: &mut Cpu) {
     assert!(dest.is_register());
 
+    let v = cpu[dest].value & 0x1 != 0;
+    cpu.status.set_carry_cond(v);
     cpu[dest].value = cpu[dest].value.rotate_right(1);
+}
+
+#[inline(always)]
+fn shar(dest: Operand, cpu: &mut Cpu) {
+    assert!(dest.is_register());
+
+    let t = cpu[dest].value & 0x1 != 0;
+    cpu.status.set_carry_cond(t);
+
+    let temp = if cpu[dest].value & 0x80000000 == 0 { 0 } else { 1 };
+    cpu[dest].value >>= 1;
+
+    if temp == 1 {
+        cpu[dest].value |= 0x80000000;
+    } else {
+        cpu[dest].value &= 0x7FFFFFFF;
+    }
 }
 
 #[inline(always)]
@@ -326,13 +420,41 @@ fn bt(disp: Operand, cpu: &mut Cpu) {
 }
 
 #[inline(always)]
-fn jmp(dest: Operand, cpu: &mut Cpu, mem: &mut Memory) {
-    assert!(dest.is_register());
+fn bra(n: Operand, disp: Operand, cpu: &mut Cpu, mem: &mut Memory) {
+    assert!(n.is_register());
+    assert!(disp.is_displacement());
+
+    let d = ((n.unwrap() as usize) << 8) | (disp.unwrap() as usize);
+    let off = if d & 0x800 == 0 {
+        0x00000FFF & d
+    } else {
+        0xFFFFF000 | d
+    } as u32;
 
     let temp = cpu.pc;
     cpu.pc += 2;
     cpu.step(mem);
-    cpu.pc = cpu[dest].value - 2;
+    cpu.pc = temp + 2 + (off * 2);
+}
+
+#[inline(always)]
+fn braf(dest: Operand, cpu: &mut Cpu, mem: &mut Memory) {
+    assert!(dest.is_register());
+
+    let temp = cpu.pc + 2 + cpu[dest].value;
+    cpu.pc += 2;
+    cpu.step(mem);
+    cpu.pc = temp;
+}
+
+#[inline(always)]
+fn jmp(dest: Operand, cpu: &mut Cpu, mem: &mut Memory) {
+    assert!(dest.is_register());
+
+    let temp = cpu[dest].value;
+    cpu.pc += 2;
+    cpu.step(mem);
+    cpu.pc = temp - 2;
 }
 
 #[inline(always)]
@@ -349,7 +471,32 @@ fn mov(dest: Operand, src: Operand, cpu: &mut Cpu) {
 }
 
 #[inline(always)]
-fn movimm(dest: Operand, imm: Operand, cpu: &mut Cpu) {
+fn mov_data_store_b(dest: Operand, src: Operand, cpu: &mut Cpu, mem: &mut Memory) {
+    assert!(dest.is_register());
+    assert!(src.is_register());
+
+    mem.write_u8(cpu[dest].value as usize, cpu[src].value as u8);
+}
+
+#[inline(always)]
+fn mov_data_store_w(dest: Operand, src: Operand, cpu: &mut Cpu, mem: &mut Memory) {
+    assert!(dest.is_register());
+    assert!(src.is_register());
+
+    mem.write_u16(cpu[dest].value as usize, cpu[src].value as u16);
+}
+
+#[inline(always)]
+fn mov_store_l(dest: Operand, src: Operand, cpu: &mut Cpu, mem: &mut Memory) {
+    assert!(dest.is_register());
+    assert!(src.is_register());
+
+    mem.write_u32(cpu[dest].value as usize, cpu[src].value);
+}
+
+
+#[inline(always)]
+fn mov_const_sign(dest: Operand, imm: Operand, cpu: &mut Cpu) {
     assert!(dest.is_register());
     assert!(imm.is_immediate());
 
@@ -358,6 +505,135 @@ fn movimm(dest: Operand, imm: Operand, cpu: &mut Cpu) {
     } else {
         cpu[dest].value = 0xFFFFFF00 | imm.unwrap() as u32;
     }
+}
+
+#[inline(always)]
+fn mov_const_load_w(dest: Operand, disp: Operand, cpu: &mut Cpu, mem: &mut Memory) {
+    assert!(dest.is_register());
+    assert!(disp.is_displacement());
+
+    let address = cpu.pc as usize + 4 + (disp.unwrap() as usize * 2);
+    println!("Loading from {:08x}", address);
+    cpu[dest].value = mem.read_u16(address) as u32;
+
+    if cpu[dest].value & 0x800 == 0 {
+        cpu[dest].value &= 0x0000FFFF;
+    } else {
+        cpu[dest].value |= 0xFFFF0000;
+    }
+}
+
+#[inline(always)]
+fn mov_const_load_l(dest: Operand, disp: Operand, cpu: &mut Cpu, mem: &mut Memory) {
+    assert!(dest.is_register());
+    assert!(disp.is_displacement());
+
+    let address = (cpu.pc & 0xFFFFFFFC) as usize + 4 + (disp.unwrap() as usize * 4);
+    cpu[dest].value = mem.read_u32(address);
+}
+
+#[inline(always)]
+fn mov_data_sign_load_w(dest: Operand, src: Operand, cpu: &mut Cpu, mem: &mut Memory) {
+    assert!(dest.is_register());
+    assert!(src.is_register());
+
+    let v = mem.read_u16(cpu[src].value as usize);
+    if (v & 0x8000 == 0) {
+        cpu[dest].value = v as u32 & 0x0000FFFF;
+    } else {
+        cpu[dest].value = v as u32 | 0xFFFF0000;
+    }
+}
+
+#[inline(always)]
+fn mov_data_sign_load_w2(dest: Operand, src: Operand, cpu: &mut Cpu, mem: &mut Memory) {
+    assert!(dest.is_register());
+    assert!(src.is_register());
+
+    let v = mem.read_u16(cpu[src].value as usize);
+    if (v & 0x8000 == 0) {
+        cpu[dest].value = v as u32 & 0x0000FFFF;
+    } else {
+        cpu[dest].value = v as u32 | 0xFFFF0000;
+    }
+
+    cpu[src].value += 2;
+}
+
+#[inline(always)]
+fn mov_data_sign_load_l(dest: Operand, src: Operand, cpu: &mut Cpu, mem: &mut Memory) {
+    assert!(dest.is_register());
+    assert!(src.is_register());
+
+    let v = mem.read_u32(cpu[src].value as usize);
+    cpu[dest].value = v;
+}
+
+#[inline(always)]
+fn mov_data_store_w2(dest: Operand, src: Operand, cpu: &mut Cpu, mem: &mut Memory) {
+    assert!(dest.is_register());
+    assert!(src.is_register());
+
+    mem.write_u16(cpu[dest].value as usize - 2, cpu[src].value as u16);
+    cpu[dest].value -= 2;
+}
+
+#[inline(always)]
+fn mov_struct_load_w(src: Operand, disp: Operand, cpu: &mut Cpu, mem: &mut Memory) {
+    assert!(src.is_register());
+    assert!(disp.is_displacement());
+
+    let address = cpu[src].value as usize + disp.unwrap() as usize * 2;
+    let r0 = Operand::RegisterOperand(0);
+    cpu[r0].value = mem.read_u16(address) as u32;
+
+    if cpu[r0].value & 0x8000 == 0 {
+        cpu[r0].value &= 0x0000FFFF;
+    } else {
+        cpu[r0].value |= 0xFFFF0000;
+    }
+}
+
+#[inline(always)]
+fn mov_struct_load_l(dest: Operand, imm: Operand, cpu: &mut Cpu, mem: &mut Memory) {
+    assert!(dest.is_register());
+    assert!(imm.is_immediate());
+
+    let m = Operand::RegisterOperand((imm.unwrap() & 0xF0) >> 4);
+    let d = imm.unwrap() & 0xF;
+    let address = cpu[m].value as usize + d as usize * 4;
+    cpu[dest].value = mem.read_u32(address);
+}
+
+#[inline(always)]
+fn mov_struct_store_w(dest: Operand, disp: Operand, cpu: &mut Cpu, mem: &mut Memory) {
+    assert!(dest.is_register());
+    assert!(disp.is_displacement());
+
+    let address = cpu[dest].value as usize + disp.unwrap() as usize * 2;
+    let r0 = Operand::RegisterOperand(0);
+    mem.write_u16(address, cpu[r0].value as u16);
+}
+
+#[inline(always)]
+fn mov_struct_store_l(dest: Operand, imm: Operand, cpu: &mut Cpu, mem: &mut Memory) {
+    assert!(dest.is_register());
+    assert!(imm.is_immediate());
+
+    let m = Operand::RegisterOperand((imm.unwrap() & 0xF0) >> 4);
+    let d = imm.unwrap() & 0xF;
+    let address = cpu[dest].value as usize + d as usize * 4;
+    mem.write_u32(address, cpu[m].value);
+}
+
+#[inline(always)]
+fn mov_a(disp: Operand, cpu: &mut Cpu) {
+    assert!(disp.is_displacement());
+
+    let address = disp.unwrap() as u32 * 4 + (cpu.pc & 0xFFFFFFFC) + 4;
+    let r0 = Operand::RegisterOperand(0);
+
+    cpu[r0].value = address;
 }
 
 #[inline(always)]
@@ -394,24 +670,12 @@ fn stsmacl(dest: Operand, cpu: &mut Cpu) {
     cpu[dest].value = cpu.macl.value;
 }
 
-fn struct_movldispstore(dest: Operand, imm: Operand, cpu: &mut Cpu, mem: &mut Memory) {
+#[inline(always)]
+fn fadd(dest: Operand, src: Operand, cpu: &mut Cpu) {
     assert!(dest.is_register());
-    assert!(imm.is_immediate());
+    assert!(src.is_register());
 
-    let src = Operand::RegisterOperand((imm.unwrap() & 0xF0) >> 4);
-    let disp = imm.unwrap() as usize & 0xF;
-
-    mem.write_u32(disp * 4 + cpu[dest].value as usize, cpu[src].value);
-}
-
-fn struct_movldispload(dest: Operand, imm: Operand, cpu: &mut Cpu, mem: &Memory) {
-    assert!(dest.is_register());
-    assert!(imm.is_immediate());
-
-    let src = Operand::RegisterOperand((imm.unwrap() & 0xF0) >> 4);
-    let disp = imm.unwrap() as usize & 0xF;
-
-    cpu[dest].value = mem.read_u32(disp * 4 + cpu[src].value as usize);
+    cpu.fpu_mut(dest).value += cpu.fpu(src).value;
 }
 
 #[inline(always)]

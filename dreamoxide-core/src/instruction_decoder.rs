@@ -12,7 +12,7 @@ impl InstructionDecoder {
 
         let n = ((code & 0x0F00) >> 8) as u8;
         let m = ((code & 0x00F0) >> 4) as u8;
-        let i = (code & 0xF) as u8;
+        let i = (code & 0xFF) as u8;
 
         let op_n = Operand::RegisterOperand(n);
         let op_m = Operand::RegisterOperand(m);
@@ -21,27 +21,47 @@ impl InstructionDecoder {
 
         match c1 {
             0x0 => match c4 {
-                0x3 => Instruction::Braf(op_n),
+                0x3 => match m {
+                    0x2 => Instruction::Braf(op_n),
+                    0x8 => Instruction::Pref(op_n),
+                    0xC => Instruction::MovCA(op_n),
+                    _   => Instruction::Nop
+                },
+                0x4 => Instruction::MovDataStoreR0B(op_n, op_m),
+                0x5 => Instruction::MovDataStoreR0W(op_n, op_m),
+                0x6 => Instruction::MovDataStoreR0L(op_n, op_m),
                 0x7 => Instruction::MulL(op_n, op_m),
                 0x8 => match m {
                     0x0 => Instruction::Clrt,
                     0x4 => Instruction::Clrs,
                     _   => Instruction::Nop
                 },
-                0x9 => Instruction::Div0u,
+                0x9 => match m {
+                    0x0 => Instruction::Nop,
+                    0x1 => Instruction::Div0u,
+                    0x2 => Instruction::MovT(op_n),
+                    _   => Instruction::Nop
+                },
                 0xA => match m {
                     0x0 => Instruction::StsMacH(op_n),
                     0x1 => Instruction::StsMacL(op_n),
                     0x2 => Instruction::StsPr(op_n),
                     _   => Instruction::Nop
                 },
+                0xC => Instruction::MovDataLoadR0B(op_n, op_m),
+                0xD => Instruction::MovDataLoadR0W(op_n, op_m),
+                0xE => Instruction::MovDataLoadR0L(op_n, op_m),
+                0xF => Instruction::MacL(op_n, op_m),
                 _   => Instruction::Nop
             },
-            0x1 => Instruction::MovLDispStore(op_n, imm),
+            0x1 => Instruction::MovStructStoreL(op_n, imm),
             0x2 => match c4 {
-                0x0 => Instruction::MovB(op_n, op_m),
-                0x1 => Instruction::MovW(op_n, op_m),
-                0x2 => Instruction::MovL(op_n, op_m),
+                0x0 => Instruction::MovDataBStore(op_n, op_m),
+                0x1 => Instruction::MovDataWStore(op_n, op_m),
+                0x2 => Instruction::MovDataLStore(op_n, op_m),
+                0x4 => Instruction::MovDataBStore1(op_n, op_m),
+                0x5 => Instruction::MovDataWStore2(op_n, op_m),
+                0x6 => Instruction::MovDataLStore4(op_n, op_m),
                 0x7 => Instruction::Div0s(op_n, op_m),
                 0x8 => Instruction::Tst(op_n, op_m),
                 0x9 => Instruction::And(op_n, op_m),
@@ -65,10 +85,16 @@ impl InstructionDecoder {
                 _   => Instruction::Nop
             },
             0x4 => match c4 {
-                0x0 => Instruction::Shll(op_n),
+                0x0 => match m {
+                    0x0 => Instruction::Shll(op_n),
+                    0x1 => Instruction::Dt(op_n),
+                    _   => Instruction::Nop,
+                },
                 0x1 => match m {
                     0x0 => Instruction::Shlr(op_n),
-                    _ => Instruction::CmpPz(op_n),
+                    0x1 => Instruction::CmpPz(op_n),
+                    0x2 => Instruction::Shar(op_n),
+                    _ => Instruction::Nop
                 },
                 0x4 => match m {
                     0x0 => Instruction::Rotl(op_n),
@@ -96,9 +122,15 @@ impl InstructionDecoder {
                 0xB => Instruction::Jmp(op_n),
                 _   => Instruction::Nop
             },
-            0x5 => Instruction::MovLDispLoad(op_n, imm),
+            0x5 => Instruction::MovStructLoadL(op_n, imm),
             0x6 => match c4 {
-                0x3 => Instruction::Mov(op_n, op_m),
+                0x0 => Instruction::MovDataSignBLoad(op_n, op_m),
+                0x1 => Instruction::MovDataSignWLoad(op_n, op_m),
+                0x2 => Instruction::MovDataSignLLoad(op_n, op_m),
+                0x3 => Instruction::MovData(op_n, op_m),
+                0x4 => Instruction::MovDataSignBLoad1(op_n, op_m),
+                0x5 => Instruction::MovDataSignWLoad2(op_n, op_m),
+                0x6 => Instruction::MovDataSignLLoad4(op_n, op_m),
                 0x7 => Instruction::Not(op_n, op_m),
                 0x8 => Instruction::SwapB(op_n, op_m),
                 0x9 => Instruction::SwapW(op_n, op_m),
@@ -106,15 +138,25 @@ impl InstructionDecoder {
             },
             0x7 => Instruction::AddConstant(op_n, imm),
             0x8 => match n {
-                0x0 => Instruction::MovBDispStore(op_m, Operand::ImmediateOperand(c4 as u8)),
-                0x1 => Instruction::MovWDispStore(op_m, Operand::ImmediateOperand(c4 as u8)),
+                0x0 => Instruction::MovStructStoreB(op_m, Operand::DisplacementOperand(c4 as u8)),
+                0x1 => Instruction::MovStructStoreW(op_m, Operand::DisplacementOperand(c4 as u8)),
+                0x4 => Instruction::MovStructLoadB(op_m, Operand::DisplacementOperand(c4 as u8)),
+                0x5 => Instruction::MovStructLoadW(op_m, Operand::DisplacementOperand(c4 as u8)),
                 0x8 => Instruction::CmpEqImm(imm),
                 0x9 => Instruction::Bt(disp),
                 0xB => Instruction::Bf(disp),
                 _   => Instruction::Nop
             },
-            0x9 => Instruction::MovWDisp(op_n, disp),
+            0x9 => Instruction::MovConstantLoadW(op_n, disp),
+            0xA => Instruction::Bra(op_n, disp),
             0xC => match n {
+                0x0 => Instruction::MovGlobalStoreB(disp),
+                0x1 => Instruction::MovGlobalStoreW(disp),
+                0x2 => Instruction::MovGlobalStoreL(disp),
+                0x4 => Instruction::MovGlobalLoadB(disp),
+                0x5 => Instruction::MovGlobalLoadW(disp),
+                0x6 => Instruction::MovGlobalLoadL(disp),
+                0x7 => Instruction::MovA(disp),
                 0x8 => Instruction::TstImm(imm),
                 0x9 => Instruction::AndImm(imm),
                 0xA => Instruction::XorImm(imm),
@@ -125,8 +167,12 @@ impl InstructionDecoder {
                 0xF => Instruction::OrB(imm),
                 _   => Instruction::Nop,
             },
-            0xD => Instruction::MovLDisp(op_n, disp),
-            0xE => Instruction::MovImm(op_n, imm),
+            0xD => Instruction::MovConstantLoadL(op_n, disp),
+            0xE => Instruction::MovConstantSign(op_n, imm),
+            0xF => match c4 {
+                0x0 => Instruction::FAdd(op_n, op_m),
+                _   => Instruction::Nop
+            },
             _ => Instruction::Nop
         }
     }

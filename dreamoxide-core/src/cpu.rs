@@ -1,9 +1,11 @@
 use StatusRegister;
 use GeneralRegister;
+use FloatingPointRegister;
 use Memory;
 use MemoryField;
 use InstructionExecuter;
 use InstructionDecoder;
+use Instruction;
 use Operand;
 
 use std::ops::Index;
@@ -13,6 +15,7 @@ pub struct Cpu {
     pub pc: u32,
     pub status: StatusRegister,
     pub registers: [GeneralRegister; 16],
+    pub fpu_registers: [FloatingPointRegister; 16],
     pub macl: GeneralRegister,
     pub mach: GeneralRegister
 }
@@ -23,6 +26,7 @@ impl Cpu {
             pc: 0xA0000000,
             status: StatusRegister { value: 0 },
             registers: [GeneralRegister { value: 0 }; 16],
+            fpu_registers: [FloatingPointRegister { value: 0.0 }; 16],
             macl: GeneralRegister { value: 0 },
             mach: GeneralRegister { value: 0 }
         }
@@ -32,17 +36,29 @@ impl Cpu {
         match mem.access(self.pc as usize) {
             &MemoryField::InstructionCell(inst) => {
                 InstructionExecuter::execute(self, mem, inst);
-
-                //if !InstructionDecoder::alters_pc(inst) {
-                    self.pc += 2;
-                //}
+                self.pc += 2;
             },
             &MemoryField::MemoryCell(val) => {
+                if val == 0xFFFF {
+                    return;
+                }
                 let inst = InstructionDecoder::decode(val);
                 *mem.access_mut(self.pc as usize) = MemoryField::InstructionCell(inst);
-                self.step(mem);
+                InstructionExecuter::execute(self, mem, inst);
+                if inst == Instruction::Nop {
+                    println!("Could not decode {:04x}", val);
+                }
+                self.pc += 2;
             }
         }
+    }
+
+    pub fn fpu<'a>(&'a self, reg: Operand) -> &'a FloatingPointRegister {
+        &self.fpu_registers[reg.unwrap() as usize]
+    }
+
+    pub fn fpu_mut<'a>(&'a mut self, reg: Operand) -> &'a mut FloatingPointRegister {
+        &mut self.fpu_registers[reg.unwrap() as usize]
     }
 }
 

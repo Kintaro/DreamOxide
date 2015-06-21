@@ -8,6 +8,11 @@ pub struct GeneralRegister {
 }
 
 #[derive(Copy, Clone)]
+pub struct FloatingPointRegister {
+    pub value: f32
+}
+
+#[derive(Copy, Clone)]
 pub struct StatusRegister {
     pub value: u32
 }
