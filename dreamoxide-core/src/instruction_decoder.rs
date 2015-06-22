@@ -21,11 +21,16 @@ impl InstructionDecoder {
 
         match c1 {
             0x0 => match c4 {
+                0x2 => match m {
+                    0x1 => Instruction::StcGbr(op_n),
+                    _ => Instruction::Unknown,
+                },
                 0x3 => match m {
+                    0x0 => Instruction::Bsrf(op_n),
                     0x2 => Instruction::Braf(op_n),
                     0x8 => Instruction::Pref(op_n),
                     0xC => Instruction::MovCA(op_n),
-                    _   => Instruction::Nop
+                    _   => Instruction::Unknown
                 },
                 0x4 => Instruction::MovDataStoreR0B(op_n, op_m),
                 0x5 => Instruction::MovDataStoreR0W(op_n, op_m),
@@ -33,28 +38,30 @@ impl InstructionDecoder {
                 0x7 => Instruction::MulL(op_n, op_m),
                 0x8 => match m {
                     0x0 => Instruction::Clrt,
+                    0x1 => Instruction::Sett,
                     0x4 => Instruction::Clrs,
-                    _   => Instruction::Nop
+                    0x5 => Instruction::Sets,
+                    _   => Instruction::Unknown
                 },
                 0x9 => match m {
                     0x0 => Instruction::Nop,
                     0x1 => Instruction::Div0u,
                     0x2 => Instruction::MovT(op_n),
-                    _   => Instruction::Nop
+                    _   => Instruction::Unknown
                 },
                 0xA => match m {
                     0x0 => Instruction::StsMacH(op_n),
                     0x1 => Instruction::StsMacL(op_n),
                     0x2 => Instruction::StsPr(op_n),
                     0xF => Instruction::StcDbr(op_n),
-                    _   => Instruction::Nop
+                    _   => Instruction::Unknown
                 },
                 0xB => Instruction::Rts,
                 0xC => Instruction::MovDataLoadR0B(op_n, op_m),
                 0xD => Instruction::MovDataLoadR0W(op_n, op_m),
                 0xE => Instruction::MovDataLoadR0L(op_n, op_m),
                 0xF => Instruction::MacL(op_n, op_m),
-                _   => Instruction::Nop
+                _   => Instruction::Unknown
             },
             0x1 => Instruction::MovStructStoreL(op_n, imm),
             0x2 => match c4 {
@@ -72,7 +79,7 @@ impl InstructionDecoder {
                 0xC => Instruction::CmpStr(op_n, op_m),
                 0xE => Instruction::MulUW(op_n, op_m),
                 0xF => Instruction::MulSW(op_n, op_m),
-                _   => Instruction::Nop
+                _   => Instruction::Unknown
             },
             0x3 => match c4 {
                 0x0 => Instruction::CmpEq(op_n, op_m),
@@ -84,36 +91,36 @@ impl InstructionDecoder {
                 0xC => Instruction::Add(op_n, op_m),
                 0xE => Instruction::AddWithCarry(op_n, op_m),
                 0xF => Instruction::AddOverflow(op_n, op_m),
-                _   => Instruction::Nop
+                _   => Instruction::Unknown
             },
             0x4 => match c4 {
                 0x0 => match m {
                     0x0 => Instruction::Shll(op_n),
                     0x1 => Instruction::Dt(op_n),
-                    _   => Instruction::Nop,
+                    _   => Instruction::Unknown,
                 },
                 0x1 => match m {
                     0x0 => Instruction::Shlr(op_n),
                     0x1 => Instruction::CmpPz(op_n),
                     0x2 => Instruction::Shar(op_n),
-                    _ => Instruction::Nop
+                    _ => Instruction::Unknown
                 },
                 0x2 => match m {
                     0x0 => Instruction::StsLMacH(op_n),
                     0x1 => Instruction::StsLMacL(op_n),
                     0x2 => Instruction::StsLPr(op_n),
-                    _   => Instruction::Nop
+                    _   => Instruction::Unknown
                 },
                 0x4 => match m {
                     0x0 => Instruction::Rotl(op_n),
                     0x2 => Instruction::RotCl(op_n),
-                    _   => Instruction::Nop
+                    _   => Instruction::Unknown
                 },
                 0x5 => match m {
                     0x0 => Instruction::Rotr(op_n),
                     0x1 => Instruction::CmpPl(op_n),
                     0x2 => Instruction::RotCr(op_n),
-                    _   => Instruction::Nop
+                    _   => Instruction::Unknown
                 },
                 0x6 => match m {
                     0x0 => Instruction::LdsLMacl(op_n),
@@ -121,7 +128,7 @@ impl InstructionDecoder {
                     0x2 => Instruction::LdsLPr(op_n),
                     0x5 => Instruction::LdsFpulL(op_n),
                     0x6 => Instruction::LdsFpscrL(op_n),
-                    _   => Instruction::Nop
+                    _   => Instruction::Unknown
                 },
                 0x7 => match m {
                     0x0 => Instruction::LdcLSr(op_n),
@@ -129,32 +136,32 @@ impl InstructionDecoder {
                     0x2 => Instruction::LdcLVbr(op_n),
                     0x3 => Instruction::LdcLSsr(op_n),
                     0x4 => Instruction::LdcLSpc(op_n),
-                    _   => Instruction::Nop
+                    _   => Instruction::Unknown
                 },
                 0x8 => match m {
                     0x0 => Instruction::Shll2(op_n),
                     0x1 => Instruction::Shll8(op_n),
                     0x2 => Instruction::Shll16(op_n),
-                    _   => Instruction::Nop
+                    _   => Instruction::Unknown
                 },
                 0x9 => match m {
                     0x0 => Instruction::Shlr2(op_n),
                     0x1 => Instruction::Shlr8(op_n),
                     0x2 => Instruction::Shlr16(op_n),
-                    _   => Instruction::Nop
+                    _   => Instruction::Unknown
                 },
                 0xA => match m {
                     0x6 => Instruction::LdsFpscr(op_n),
                     0xF => Instruction::LdcDbr(op_n),
-                    _   => Instruction::Nop
+                    _   => Instruction::Unknown
                 },
                 0xB => match m {
                     0x0 => Instruction::Jsr(op_n),
                     0x2 => Instruction::Jmp(op_n),
-                    _   => Instruction::Nop
+                    _   => Instruction::Unknown
                 },
                 0xE => Instruction::LdcSr(op_n),
-                _   => Instruction::Nop
+                _   => Instruction::Unknown
             },
             0x5 => Instruction::MovStructLoadL(op_n, imm),
             0x6 => match c4 {
@@ -168,7 +175,7 @@ impl InstructionDecoder {
                 0x7 => Instruction::Not(op_n, op_m),
                 0x8 => Instruction::SwapB(op_n, op_m),
                 0x9 => Instruction::SwapW(op_n, op_m),
-                _   => Instruction::Nop
+                _   => Instruction::Unknown
             },
             0x7 => Instruction::AddConstant(op_n, imm),
             0x8 => match n {
@@ -181,7 +188,7 @@ impl InstructionDecoder {
                 0xB => Instruction::Bf(disp),
                 0xD => Instruction::Bts(disp),
                 0xF => Instruction::Bfs(disp),
-                _   => Instruction::Nop
+                _   => Instruction::Unknown
             },
             0x9 => Instruction::MovConstantLoadW(op_n, disp),
             0xA => Instruction::Bra(op_n, disp),
@@ -202,7 +209,7 @@ impl InstructionDecoder {
                 0xD => Instruction::AndB(imm),
                 0xE => Instruction::XorB(imm),
                 0xF => Instruction::OrB(imm),
-                _   => Instruction::Nop,
+                _   => Instruction::Unknown,
             },
             0xD => Instruction::MovConstantLoadL(op_n, disp),
             0xE => Instruction::MovConstantSign(op_n, imm),
@@ -219,11 +226,11 @@ impl InstructionDecoder {
                 0xC => Instruction::FMov(op_n, op_m),
                 0xD => match m {
                     0xF => Instruction::Frchg,
-                    _   => Instruction::Nop
+                    _   => Instruction::Unknown
                 },
-                _   => Instruction::Nop
+                _   => Instruction::Unknown
             },
-            _ => Instruction::Nop
+            _ => Instruction::Unknown
         }
     }
 

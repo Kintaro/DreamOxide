@@ -62,11 +62,13 @@ impl Cpu {
                 }
                 let inst = InstructionDecoder::decode(val);
                 *mem.access_mut(self.pc as usize) = MemoryField::InstructionCell(inst);
-                InstructionExecuter::execute(self, mem, inst);
-                if inst == Instruction::Nop && val != 0x009 {
+
+                if inst == Instruction::Unknown {
                     println!("[0x{:08x}] Could not decode {:04x}", self.pc, val);
                 }
-                self.pc += 2;
+
+                InstructionExecuter::execute(self, mem, inst);
+                                self.pc += 2;
             }
         }
     }

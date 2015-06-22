@@ -14,11 +14,11 @@ impl InstructionExecuter {
     #[inline(always)]
     pub fn execute(cpu: &mut Cpu, mem: &mut Memory, inst: Instruction) {
         //if cpu.pc >= 0x8c0010f0 && cpu.pc <= 0x8c001100 {
-        if cpu.pc == 0x8c00b6be {
+        if cpu.pc == 0x8c00b588 {
         println!("[0x{:8x}] [{:?}] <0x{:8x}> {:?}",
                  cpu.pc,
                  cpu.status,
-                 cpu[Operand::RegisterOperand(1)].value,
+                 cpu[Operand::RegisterOperand(0)].value,
                  inst);
         }
         match inst {
@@ -39,8 +39,15 @@ impl InstructionExecuter {
             Instruction::XorImm(imm) => xori(imm, cpu),
             Instruction::XorB(imm) => xorb(imm, cpu),
 
+            Instruction::CmpEqImm(dest) => cmpeqimm(dest, cpu),
+            Instruction::CmpEq(dest, src) => cmpeq(dest, src, cpu),
+            Instruction::CmpHs(dest, src) => cmphs(dest, src, cpu),
+            Instruction::CmpGe(dest, src) => cmpge(dest, src, cpu),
             Instruction::CmpHi(dest, src) => cmphi(dest, src, cpu),
+            Instruction::CmpGt(dest, src) => cmpgt(dest, src, cpu),
             Instruction::CmpPz(src) => cmppz(src, cpu),
+            Instruction::CmpPl(src) => cmppl(src, cpu),
+            Instruction::CmpStr(dest, src) => cmpstr(dest, src, cpu),
             Instruction::Tst(dest, src) => tst(dest, src, cpu),
             Instruction::TstImm(imm) => tsti(imm, cpu),
             Instruction::TstB(imm) => tstb(imm, cpu),
@@ -66,6 +73,7 @@ impl InstructionExecuter {
             Instruction::Bra(n, disp) => bra(n, disp, cpu, mem),
             Instruction::Braf(dest) => braf(dest, cpu, mem),
             Instruction::Bsr(n, disp) => bsr(n, disp, cpu, mem),
+            Instruction::Bsrf(dest) => bsrf(dest, cpu, mem),
             Instruction::Jmp(dest) => jmp(dest, cpu, mem),
             Instruction::Jsr(dest) => jsr(dest, cpu, mem),
             Instruction::Rts => rts(cpu, mem),
@@ -73,6 +81,7 @@ impl InstructionExecuter {
             Instruction::SwapB(dest, src) => swapb(dest, src, cpu),
             Instruction::SwapW(dest, src) => swapw(dest, src, cpu),
 
+            Instruction::StcGbr(dest) => stcgbr(dest, cpu),
             Instruction::StcDbr(dest) => stcdbr(dest, cpu),
             Instruction::StsMacL(dest) => stsmacl(dest, cpu),
             Instruction::StsMacH(dest) => stsmach(dest, cpu),
@@ -82,6 +91,8 @@ impl InstructionExecuter {
 
             Instruction::Clrs => clrs(cpu),
             Instruction::Clrt => clrt(cpu),
+            Instruction::Sets => sets(cpu),
+            Instruction::Sett => sett(cpu),
 
             Instruction::LdcSr(src) => ldcsr(src, cpu),
             Instruction::LdcDbr(src) => ldcdbr(src, cpu),
@@ -104,6 +115,7 @@ impl InstructionExecuter {
             Instruction::MovConstantSign(dest, imm) => mov_const_sign(dest, imm, cpu),
             Instruction::MovConstantLoadW(dest, disp) => mov_const_load_w(dest, disp, cpu, mem),
             Instruction::MovConstantLoadL(dest, disp) => mov_const_load_l(dest, disp, cpu, mem),
+            Instruction::MovDataSignBLoad(dest, src) => mov_data_sign_load_b(dest, src, cpu, mem),
             Instruction::MovDataSignWLoad(dest, src) => mov_data_sign_load_w(dest, src, cpu, mem),
             Instruction::MovDataSignWLoad2(dest, src) => mov_data_sign_load_w2(dest, src, cpu, mem),
             Instruction::MovDataSignLLoad(dest, src) => mov_data_sign_load_l(dest, src, cpu, mem),
@@ -111,6 +123,7 @@ impl InstructionExecuter {
             Instruction::MovDataLStore(dest, src) => mov_data_store_l(dest, src, cpu, mem),
             Instruction::MovDataWStore2(dest, src) => mov_data_store_w2(dest, src, cpu, mem),
             Instruction::MovDataLStore4(dest, src) => mov_data_store_l4(dest, src, cpu, mem),
+            Instruction::MovDataLoadR0W(dest, src) => mov_data_load_r0w(dest, src, cpu, mem),
 
             Instruction::MovStructLoadW(src, disp) => mov_struct_load_w(src, disp, cpu, mem),
             Instruction::MovStructLoadL(dest, imm) => mov_struct_load_l(dest, imm, cpu, mem),
@@ -137,7 +150,7 @@ impl InstructionExecuter {
             Instruction::Pref(_) => (),
             Instruction::Nop => (),
 
-            _ => panic!("Something went wrong!")
+            _ => panic!("Something went wrong! {:?}", inst)
         }
     }
 }
@@ -300,6 +313,55 @@ fn xorb(imm: Operand, cpu: &mut Cpu) {
 }
 
 #[inline(always)]
+fn cmpeqimm(imm: Operand, cpu: &mut Cpu) {
+    assert!(imm.is_immediate());
+
+    let v = if imm.unwrap() & 0x80 == 0 {
+        imm.unwrap() as u32 & 0x000000FF
+    } else {
+        imm.unwrap() as u32 | 0xFFFFFF00
+    };
+    let eq = cpu[Operand::RegisterOperand(0)].value == v;
+    cpu.status.set_carry_cond(eq);
+}
+
+#[inline(always)]
+fn cmpeq(dest: Operand, src: Operand, cpu: &mut Cpu) {
+    assert!(dest.is_register());
+    assert!(src.is_register());
+
+    let v = cpu[dest].value == cpu[src].value;
+    cpu.status.set_carry_cond(v);
+}
+
+#[inline(always)]
+fn cmpge(dest: Operand, src: Operand, cpu: &mut Cpu) {
+    assert!(dest.is_register());
+    assert!(src.is_register());
+
+    let v = cpu[dest].value as i32 >= cpu[src].value as i32;
+    cpu.status.set_carry_cond(v);
+}
+
+#[inline(always)]
+fn cmpgt(dest: Operand, src: Operand, cpu: &mut Cpu) {
+    assert!(dest.is_register());
+    assert!(src.is_register());
+
+    let v = cpu[dest].value as i32 > cpu[src].value as i32;
+    cpu.status.set_carry_cond(v);
+}
+
+#[inline(always)]
+fn cmphs(dest: Operand, src: Operand, cpu: &mut Cpu) {
+    assert!(dest.is_register());
+    assert!(src.is_register());
+
+    let v = cpu[dest].value >= cpu[src].value;
+    cpu.status.set_carry_cond(v);
+}
+
+#[inline(always)]
 fn cmphi(dest: Operand, src: Operand, cpu: &mut Cpu) {
     assert!(src.is_register());
 
@@ -308,11 +370,34 @@ fn cmphi(dest: Operand, src: Operand, cpu: &mut Cpu) {
 }
 
 #[inline(always)]
+fn cmppl(src: Operand, cpu: &mut Cpu) {
+    assert!(src.is_register());
+
+    let val = cpu[src].value as i32 > 0;
+    cpu.status.set_carry_cond(val);
+}
+
+#[inline(always)]
 fn cmppz(src: Operand, cpu: &mut Cpu) {
     assert!(src.is_register());
 
     let val = cpu[src].value as i32 >= 0;
     cpu.status.set_carry_cond(val);
+}
+
+#[inline(always)]
+fn cmpstr(dest: Operand, src: Operand, cpu: &mut Cpu) {
+    assert!(dest.is_register());
+    assert!(src.is_register());
+
+    let temp = cpu[dest].value ^ cpu[src].value;
+    let hh = (temp & 0xFF000000) >> 24;
+    let hl = (temp & 0x00FF0000) >> 16;
+    let lh = (temp & 0x0000FF00) >>  8;
+    let ll =  temp & 0x000000FF;
+    let r = hh != 0 && hl != 0 && lh != 0 && ll != 0;
+
+    cpu.status.set_carry_cond(!r);
 }
 
 #[inline(always)]
@@ -549,15 +634,26 @@ fn bsr(n: Operand, d: Operand, cpu: &mut Cpu, mem: &mut Memory) {
 
     let v = ((n.unwrap() as u32) << 8) | d.unwrap() as u32;
     let disp = if v & 0x800 == 0 {
-        v & 0x000000FF
+        v & 0x00000FFF
     } else {
-        v | 0xFFFFFF00
+        v | 0xFFFFF000
     };
 
     cpu.pr = cpu.pc + 4;
     cpu.pc += 2;
     cpu.step(mem);
     cpu.pc = temp + 2 + (disp << 1);
+}
+
+#[inline(always)]
+fn bsrf(dest: Operand, cpu: &mut Cpu, mem: &mut Memory) {
+    assert!(dest.is_register());
+
+    let temp = cpu.pc + 2 + cpu[dest].value;
+    cpu.pr = cpu.pc + 4;
+    cpu.pc += 2;
+    cpu.step(mem);
+    cpu.pc = temp;
 }
 
 #[inline(always)]
@@ -592,12 +688,22 @@ fn rts(cpu: &mut Cpu, mem: &mut Memory) {
 
 #[inline(always)]
 fn clrs(cpu: &mut Cpu) {
-    cpu.status.set_carry_cond(false);
+    cpu.status.set_saturated_cond(false);
 }
 
 #[inline(always)]
 fn clrt(cpu: &mut Cpu) {
     cpu.status.set_carry_cond(false);
+}
+
+#[inline(always)]
+fn sets(cpu: &mut Cpu) {
+    cpu.status.set_saturated_cond(true);
+}
+
+#[inline(always)]
+fn sett(cpu: &mut Cpu) {
+    cpu.status.set_carry_cond(true);
 }
 
 #[inline(always)]
@@ -756,7 +862,7 @@ fn mov_const_load_w(dest: Operand, disp: Operand, cpu: &mut Cpu, mem: &mut Memor
     let address = cpu.pc as usize + 4 + (disp.unwrap() as usize * 2);
     cpu[dest].value = mem.read_u16(address) as u32;
 
-    if cpu[dest].value & 0x800 == 0 {
+    if cpu[dest].value & 0x8000 == 0 {
         cpu[dest].value &= 0x0000FFFF;
     } else {
         cpu[dest].value |= 0xFFFF0000;
@@ -770,6 +876,19 @@ fn mov_const_load_l(dest: Operand, disp: Operand, cpu: &mut Cpu, mem: &mut Memor
 
     let address = (cpu.pc & 0xFFFFFFFC) as usize + 4 + (disp.unwrap() as usize * 4);
     cpu[dest].value = mem.read_u32(address);
+}
+
+#[inline(always)]
+fn mov_data_sign_load_b(dest: Operand, src: Operand, cpu: &mut Cpu, mem: &mut Memory) {
+    assert!(dest.is_register());
+    assert!(src.is_register());
+
+    let v = mem.read_u8(cpu[src].value as usize);
+    if v & 0x80 == 0 {
+        cpu[dest].value = v as u32 & 0x000000FF;
+    } else {
+        cpu[dest].value = v as u32 | 0xFFFFFF00;
+    }
 }
 
 #[inline(always)]
@@ -848,6 +967,19 @@ fn mov_data_store_l4(dest: Operand, src: Operand, cpu: &mut Cpu, mem: &mut Memor
 
     cpu[dest].value -= 4;
     mem.write_u32(cpu[dest].value as usize, cpu[src].value);
+}
+
+#[inline(always)]
+fn mov_data_load_r0w(dest: Operand, src: Operand, cpu: &mut Cpu, mem: &mut Memory) {
+    assert!(dest.is_register());
+    assert!(src.is_register());
+
+    let v = mem.read_u16(cpu[src].value as usize + cpu[Operand::RegisterOperand(0)].value as usize) as u32;
+    cpu[dest].value = if v & 0x8000 == 0 {
+        v & 0x0000FFFF
+    } else {
+        v | 0xFFFF0000
+    };
 }
 
 #[inline(always)]
@@ -987,6 +1119,13 @@ fn swapw(dest: Operand, src: Operand, cpu: &mut Cpu) {
 
     let temp = (cpu[src].value >> 16) & 0x0000FFFF;
     cpu[dest].value = (cpu[src].value << 16) | temp;
+}
+
+#[inline(always)]
+fn stcgbr(dest: Operand, cpu: &mut Cpu) {
+    assert!(dest.is_register());
+
+    cpu[dest].value = cpu.gbr.value;
 }
 
 #[inline(always)]

@@ -97,6 +97,7 @@ pub enum Instruction {
     Bra(Operand, Operand),
     Braf(Operand),
     Bsr(Operand, Operand),
+    Bsrf(Operand),
     Jmp(Operand),
     Jsr(Operand),
     Rts,
@@ -119,6 +120,7 @@ pub enum Instruction {
     LdsFpulL(Operand),
     Sets,
     Sett,
+    StcGbr(Operand),
     StcDbr(Operand),
     StsMacH(Operand),
     StsMacL(Operand),
@@ -135,7 +137,8 @@ pub enum Instruction {
     FMovStoreD8(Operand, Operand),
     Frchg,
     Pref(Operand),
-    Nop
+    Nop,
+    Unknown
 }
 
 #[derive(Copy, Clone, PartialEq, Eq)]
