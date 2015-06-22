@@ -13,7 +13,8 @@ impl InstructionExecuter {
     /// Execute the instruction currently pointed at by PC
     #[inline(always)]
     pub fn execute(cpu: &mut Cpu, mem: &mut Memory, inst: Instruction) {
-        if cpu.pc >= 0x8c0010f0 && cpu.pc <= 0x8c001100 {
+        //if cpu.pc >= 0x8c0010f0 && cpu.pc <= 0x8c001100 {
+        if cpu.pc == 0x8c00b6be {
         println!("[0x{:8x}] [{:?}] <0x{:8x}> {:?}",
                  cpu.pc,
                  cpu.status,
@@ -475,12 +476,16 @@ fn bfs(disp: Operand, cpu: &mut Cpu, mem: &mut Memory) {
         0xFFFFFF00 | disp.unwrap() as u32
     };
 
+    let carry = cpu.status.is_carry();
+    let oldpc = cpu.pc;
     let temp = cpu.pc + 2 + (d << 1);
     cpu.pc += 2;
     cpu.step(mem);
 
-    if !cpu.status.is_carry() {
+    if !carry {
         cpu.pc = temp;
+    } else {
+        cpu.pc = oldpc + 2;
     }
 }
 
@@ -494,12 +499,16 @@ fn bts(disp: Operand, cpu: &mut Cpu, mem: &mut Memory) {
         0xFFFFFF00 | disp.unwrap() as u32
     };
 
+    let carry = cpu.status.is_carry();
+    let oldpc = cpu.pc;
     let temp = cpu.pc + 2 + (d << 1);
     cpu.pc += 2;
     cpu.step(mem);
 
-    if cpu.status.is_carry() {
+    if carry {
         cpu.pc = temp;
+    } else {
+        cpu.pc = oldpc + 2;
     }
 }
 

@@ -72,11 +72,13 @@ impl Cpu {
     }
 
     pub fn fpu<'a>(&'a self, reg: Operand) -> &'a FloatingPointRegister {
-        &self.fpu_registers[reg.unwrap() as usize]
+        let bank = if self.fpscr.value & 0x200000 != 0 { 16 } else { 0 };
+        &self.fpu_registers[bank + reg.unwrap() as usize]
     }
 
     pub fn fpu_mut<'a>(&'a mut self, reg: Operand) -> &'a mut FloatingPointRegister {
-        &mut self.fpu_registers[reg.unwrap() as usize]
+        let bank = if self.fpscr.value & 0x200000 != 0 { 16 } else { 0 };
+        &mut self.fpu_registers[bank + reg.unwrap() as usize]
     }
 }
 
@@ -84,14 +86,14 @@ impl Index<Operand> for Cpu {
     type Output = GeneralRegister;
 
     fn index<'a>(&'a self, _index: Operand) -> &'a GeneralRegister {
-        let bank = if self.status.is_banked() && _index.unwrap() < 8 { 16 } else { 0 };
+        let bank = if self.status.is_banked() && self.status.is_privileged() && _index.unwrap() < 8 { 16 } else { 0 };
         &self.registers[bank + _index.unwrap() as usize]
     }
 }
 
 impl IndexMut<Operand> for Cpu {
     fn index_mut<'a>(&'a mut self, _index: Operand) -> &'a mut GeneralRegister {
-        let bank = if self.status.is_banked() && _index.unwrap() < 8 { 16 } else { 0 };
+        let bank = if self.status.is_banked() && self.status.is_privileged() && _index.unwrap() < 8 { 16 } else { 0 };
         &mut self.registers[bank + _index.unwrap() as usize]
     }
 }

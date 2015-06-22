@@ -229,12 +229,32 @@ impl InstructionDecoder {
 
     pub fn instruction_group(inst: Instruction) -> InstructionGroup {
         match inst {
+            Instruction::Clrt => InstructionGroup::MT,
+            Instruction::CmpEq(_, _) => InstructionGroup::MT,
             Instruction::Add(_, _) => InstructionGroup::EX,
             Instruction::AddConstant(_, _) => InstructionGroup::EX,
             Instruction::AddWithCarry(_, _) => InstructionGroup::EX,
             Instruction::AddOverflow(_, _) => InstructionGroup::EX,
             Instruction::And(_, _) => InstructionGroup::EX,
+            Instruction::Bf(_) => InstructionGroup::BR,
+            Instruction::Bfs(_) => InstructionGroup::BR,
+            Instruction::Bt(_) => InstructionGroup::BR,
+            Instruction::Bts(_) => InstructionGroup::BR,
+            Instruction::Bra(_, _) => InstructionGroup::BR,
+            Instruction::Bsr(_, _) => InstructionGroup::BR,
             _         => InstructionGroup::Unknown
+        }
+    }
+
+    pub fn parallelizable(a: InstructionGroup, b: InstructionGroup) -> bool {
+        if a == b {
+            return false;
+        }
+        match (a, b) {
+            (InstructionGroup::MT, InstructionGroup::MT) => true,
+            (InstructionGroup::CO, _) => false,
+            (_, InstructionGroup::CO) => false,
+            _ => true
         }
     }
 

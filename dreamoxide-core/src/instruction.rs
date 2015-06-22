@@ -138,9 +138,12 @@ pub enum Instruction {
     Nop
 }
 
+#[derive(Copy, Clone, PartialEq, Eq)]
 pub enum InstructionGroup {
+    MT,
     EX,
     BR,
+    CO,
     Unknown
 }
 
