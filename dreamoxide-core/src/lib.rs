@@ -1,5 +1,6 @@
 #![feature(step_by)]
 #![feature(convert)]
+#![feature(slice_patterns)]
 pub use operand::Operand;
 pub use instruction::Instruction;
 pub use instruction::InstructionGroup;

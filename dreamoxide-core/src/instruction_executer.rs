@@ -171,13 +171,7 @@ fn addi(dest: Operand, src: Operand, cpu: &mut Cpu) {
     assert!(dest.is_register());
     assert!(src.is_immediate());
 
-    let imm = src.unwrap();
-
-    if imm & 0x80 == 0 {
-        cpu[dest].value += 0x000000FF & (imm as u32);
-    } else {
-        cpu[dest].value += 0xFFFFFF00 | (imm as u32);
-    }
+    cpu[dest].value += Memory::sign_extend_u8(src.unwrap()) as u32;
 }
 
 /// Add with attention to carry flag
@@ -317,11 +311,7 @@ fn xorb(imm: Operand, cpu: &mut Cpu) {
 fn cmpeqimm(imm: Operand, cpu: &mut Cpu) {
     assert!(imm.is_immediate());
 
-    let v = if imm.unwrap() & 0x80 == 0 {
-        imm.unwrap() as u32 & 0x000000FF
-    } else {
-        imm.unwrap() as u32 | 0xFFFFFF00
-    };
+    let v = Memory::sign_extend_u8(imm.unwrap()) as u32;
     let eq = cpu[Operand::RegisterOperand(0)].value == v;
     cpu.status.set_carry_cond(eq);
 }
@@ -526,11 +516,7 @@ fn shar(dest: Operand, cpu: &mut Cpu) {
 fn bf(disp: Operand, cpu: &mut Cpu) {
     assert!(disp.is_displacement());
 
-    let d = if disp.unwrap() & 0x80 == 0 {
-        0x000000FF & disp.unwrap() as u32
-    } else {
-        0xFFFFFF00 | disp.unwrap() as u32
-    };
+    let d = Memory::sign_extend_u8(disp.unwrap()) as u32;
 
     if !cpu.status.is_carry() {
         cpu.pc = cpu.pc + 2 + (d << 1);
@@ -541,11 +527,7 @@ fn bf(disp: Operand, cpu: &mut Cpu) {
 fn bt(disp: Operand, cpu: &mut Cpu) {
     assert!(disp.is_displacement());
 
-    let d = if disp.unwrap() & 0x80 == 0 {
-        0x000000FF & disp.unwrap() as u32
-    } else {
-        0xFFFFFF00 | disp.unwrap() as u32
-    };
+    let d = Memory::sign_extend_u8(disp.unwrap()) as u32;
 
     if cpu.status.is_carry() {
         cpu.pc = cpu.pc + 2 + (d << 1);
@@ -556,11 +538,7 @@ fn bt(disp: Operand, cpu: &mut Cpu) {
 fn bfs(disp: Operand, cpu: &mut Cpu, mem: &mut Memory) {
     assert!(disp.is_displacement());
 
-    let d = if disp.unwrap() & 0x80 == 0 {
-        0x000000FF & disp.unwrap() as u32
-    } else {
-        0xFFFFFF00 | disp.unwrap() as u32
-    };
+    let d = Memory::sign_extend_u8(disp.unwrap()) as u32;
 
     let carry = cpu.status.is_carry();
     let oldpc = cpu.pc;
@@ -579,11 +557,7 @@ fn bfs(disp: Operand, cpu: &mut Cpu, mem: &mut Memory) {
 fn bts(disp: Operand, cpu: &mut Cpu, mem: &mut Memory) {
     assert!(disp.is_displacement());
 
-    let d = if disp.unwrap() & 0x80 == 0 {
-        0x000000FF & disp.unwrap() as u32
-    } else {
-        0xFFFFFF00 | disp.unwrap() as u32
-    };
+    let d = Memory::sign_extend_u8(disp.unwrap()) as u32;
 
     let carry = cpu.status.is_carry();
     let oldpc = cpu.pc;
@@ -853,11 +827,7 @@ fn mov_const_sign(dest: Operand, imm: Operand, cpu: &mut Cpu) {
     assert!(dest.is_register());
     assert!(imm.is_immediate());
 
-    if imm.unwrap() & 0x80 == 0 {
-        cpu[dest].value = 0x000000FF & imm.unwrap() as u32;
-    } else {
-        cpu[dest].value = 0xFFFFFF00 | imm.unwrap() as u32;
-    }
+    cpu[dest].value = Memory::sign_extend_u8(imm.unwrap()) as u32;
 }
 
 #[inline(always)]
@@ -866,13 +836,7 @@ fn mov_const_load_w(dest: Operand, disp: Operand, cpu: &mut Cpu, mem: &mut Memor
     assert!(disp.is_displacement());
 
     let address = cpu.pc as usize + 4 + (disp.unwrap() as usize * 2);
-    cpu[dest].value = mem.read_u16(address) as u32;
-
-    if cpu[dest].value & 0x8000 == 0 {
-        cpu[dest].value &= 0x0000FFFF;
-    } else {
-        cpu[dest].value |= 0xFFFF0000;
-    }
+    cpu[dest].value = Memory::sign_extend_u16(mem.read_u16(address)) as u32;
 }
 
 #[inline(always)]
@@ -889,12 +853,7 @@ fn mov_data_sign_load_b(dest: Operand, src: Operand, cpu: &mut Cpu, mem: &mut Me
     assert!(dest.is_register());
     assert!(src.is_register());
 
-    let v = mem.read_u8(cpu[src].value as usize);
-    if v & 0x80 == 0 {
-        cpu[dest].value = v as u32 & 0x000000FF;
-    } else {
-        cpu[dest].value = v as u32 | 0xFFFFFF00;
-    }
+    cpu[dest].value = Memory::sign_extend_u8(mem.read_u8(cpu[src].value as usize)) as u32;
 }
 
 #[inline(always)]
@@ -902,12 +861,7 @@ fn mov_data_sign_load_w(dest: Operand, src: Operand, cpu: &mut Cpu, mem: &mut Me
     assert!(dest.is_register());
     assert!(src.is_register());
 
-    let v = mem.read_u16(cpu[src].value as usize);
-    if v & 0x8000 == 0 {
-        cpu[dest].value = v as u32 & 0x0000FFFF;
-    } else {
-        cpu[dest].value = v as u32 | 0xFFFF0000;
-    }
+    cpu[dest].value = Memory::sign_extend_u16(mem.read_u16(cpu[src].value as usize)) as u32;
 }
 
 #[inline(always)]
@@ -915,12 +869,7 @@ fn mov_data_sign_load_w2(dest: Operand, src: Operand, cpu: &mut Cpu, mem: &mut M
     assert!(dest.is_register());
     assert!(src.is_register());
 
-    let v = mem.read_u16(cpu[src].value as usize);
-    if v & 0x8000 == 0 {
-        cpu[dest].value = v as u32 & 0x0000FFFF;
-    } else {
-        cpu[dest].value = v as u32 | 0xFFFF0000;
-    }
+    cpu[dest].value = Memory::sign_extend_u16(mem.read_u16(cpu[src].value as usize)) as u32;
 
     if dest != src {
         cpu[src].value += 2;
