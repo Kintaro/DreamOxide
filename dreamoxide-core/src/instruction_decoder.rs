@@ -151,6 +151,7 @@ impl InstructionDecoder {
                     _   => Instruction::Unknown
                 },
                 0xA => match m {
+                    0x2 => Instruction::LdsPr(op_n),
                     0x6 => Instruction::LdsFpscr(op_n),
                     0xF => Instruction::LdcDbr(op_n),
                     _   => Instruction::Unknown

@@ -102,6 +102,7 @@ impl InstructionExecuter {
             Instruction::LdcLSsr(src) => ldclssr(src, cpu, mem),
             Instruction::LdcLSpc(src) => ldclspc(src, cpu, mem),
 
+            Instruction::LdsPr(src) => ldspr(src, cpu),
             Instruction::LdsLMacl(src) => ldslmacl(src, cpu, mem),
             Instruction::LdsLMach(src) => ldslmach(src, cpu, mem),
             Instruction::LdsLPr(src) => ldslpr(src, cpu, mem),
@@ -764,7 +765,12 @@ fn ldclspc(src: Operand, cpu: &mut Cpu, mem: &mut Memory) {
     cpu.spc.value = v;
 }
 
+#[inline(always)]
+fn ldspr(src: Operand, cpu: &mut Cpu) {
+    assert!(src.is_register());
 
+    cpu.pr = cpu[src].value;
+}
 
 #[inline(always)]
 fn ldslmacl(src: Operand, cpu: &mut Cpu, mem: &mut Memory) {

@@ -112,6 +112,7 @@ pub enum Instruction {
     LdcLVbr(Operand),
     LdcLSsr(Operand),
     LdcLSpc(Operand),
+    LdsPr(Operand),
     LdsLMacl(Operand),
     LdsLMach(Operand),
     LdsLPr(Operand),
