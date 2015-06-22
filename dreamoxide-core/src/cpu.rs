@@ -17,7 +17,7 @@ pub struct Cpu {
     pub pc: u32,
     pub pr: u32,
     pub status: StatusRegister,
-    pub registers: [GeneralRegister; 32],
+    pub registers: [GeneralRegister; 24],
     pub fpu_registers: [FloatingPointRegister; 32],
     pub macl: GeneralRegister,
     pub mach: GeneralRegister,
@@ -36,7 +36,7 @@ impl Cpu {
             pc: 0xA0000000,
             pr: 0,
             status: StatusRegister { value: 0 },
-            registers: [GeneralRegister { value: 0 }; 32],
+            registers: [GeneralRegister { value: 0 }; 24],
             fpu_registers: [FloatingPointRegister { value: 0.0 }; 32],
             macl: GeneralRegister { value: 0 },
             mach: GeneralRegister { value: 0 },
@@ -46,7 +46,7 @@ impl Cpu {
             ssr: GeneralRegister { value: 0 },
             spc: GeneralRegister { value: 0 },
             fpscr: GeneralRegister { value: 0 },
-            fpul: GeneralRegister { value: 0 }
+            fpul: GeneralRegister { value: 0 },
         }
     }
 
@@ -63,8 +63,8 @@ impl Cpu {
                 let inst = InstructionDecoder::decode(val);
                 *mem.access_mut(self.pc as usize) = MemoryField::InstructionCell(inst);
                 InstructionExecuter::execute(self, mem, inst);
-                if inst == Instruction::Nop {
-                    println!("Could not decode {:04x}", val);
+                if inst == Instruction::Nop && val != 0x009 {
+                    println!("[0x{:08x}] Could not decode {:04x}", self.pc, val);
                 }
                 self.pc += 2;
             }
@@ -84,14 +84,14 @@ impl Index<Operand> for Cpu {
     type Output = GeneralRegister;
 
     fn index<'a>(&'a self, _index: Operand) -> &'a GeneralRegister {
-        let bank = if self.status.is_banked() { 16 } else { 0 };
+        let bank = if self.status.is_banked() && _index.unwrap() < 8 { 16 } else { 0 };
         &self.registers[bank + _index.unwrap() as usize]
     }
 }
 
 impl IndexMut<Operand> for Cpu {
     fn index_mut<'a>(&'a mut self, _index: Operand) -> &'a mut GeneralRegister {
-        let bank = if self.status.is_banked() { 16 } else { 0 };
+        let bank = if self.status.is_banked() && _index.unwrap() < 8 { 16 } else { 0 };
         &mut self.registers[bank + _index.unwrap() as usize]
     }
 }

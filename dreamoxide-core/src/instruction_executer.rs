@@ -13,13 +13,13 @@ impl InstructionExecuter {
     /// Execute the instruction currently pointed at by PC
     #[inline(always)]
     pub fn execute(cpu: &mut Cpu, mem: &mut Memory, inst: Instruction) {
-        //if cpu.pc >= 0x8c00b57a {
-        //println!("[0x{:8x}] [{:?}] <0x{:8x}> {:?}",
-                 //cpu.pc,
-                 //cpu.status,
-                 //cpu.registers[1].value,
-                 //inst);
-        //}
+        if cpu.pc >= 0x8c0010f0 && cpu.pc <= 0x8c001100 {
+        println!("[0x{:8x}] [{:?}] <0x{:8x}> {:?}",
+                 cpu.pc,
+                 cpu.status,
+                 cpu[Operand::RegisterOperand(1)].value,
+                 inst);
+        }
         match inst {
             Instruction::Add(dest, src) => add(dest, src, cpu),
             Instruction::AddConstant(dest, src) => addi(dest, src, cpu),
@@ -72,6 +72,7 @@ impl InstructionExecuter {
             Instruction::SwapB(dest, src) => swapb(dest, src, cpu),
             Instruction::SwapW(dest, src) => swapw(dest, src, cpu),
 
+            Instruction::StcDbr(dest) => stcdbr(dest, cpu),
             Instruction::StsMacL(dest) => stsmacl(dest, cpu),
             Instruction::StsMacH(dest) => stsmach(dest, cpu),
             Instruction::StsLMacH(dest) => stslmach(dest, cpu, mem),
@@ -115,6 +116,11 @@ impl InstructionExecuter {
             Instruction::MovStructStoreW(dest, disp) => mov_struct_store_w(dest, disp, cpu, mem),
             Instruction::MovStructStoreL(dest, imm) => mov_struct_store_l(dest, imm, cpu, mem),
 
+            Instruction::MovGlobalLoadB(disp) => mov_glob_load_b(disp, cpu, mem),
+            Instruction::MovGlobalLoadW(disp) => mov_glob_load_w(disp, cpu, mem),
+            Instruction::MovGlobalLoadL(disp) => mov_glob_load_l(disp, cpu, mem),
+            Instruction::MovGlobalStoreB(disp) => mov_glob_store_b(disp, cpu, mem),
+            Instruction::MovGlobalStoreW(disp) => mov_glob_store_w(disp, cpu, mem),
             Instruction::MovGlobalStoreL(disp) => mov_glob_store_l(disp, cpu, mem),
 
             Instruction::MovA(disp) => mov_a(disp, cpu),
@@ -122,6 +128,7 @@ impl InstructionExecuter {
             Instruction::FAdd(dest, src) => fadd(dest, src, cpu),
             Instruction::FMov(dest, src) => fmov(dest, src, cpu),
             Instruction::FMovLoadS4(dest, src) => fmov_load_s4(dest, src, cpu, mem),
+            Instruction::FMovLoadD8(dest, src) => fmov_load_d8(dest, src, cpu, mem),
             Instruction::FMovStoreS4(dest, src) => fmov_store_s4(dest, src, cpu, mem),
             Instruction::FMovStoreD8(dest, src) => fmov_store_d8(dest, src, cpu, mem),
             Instruction::Frchg => frchg(cpu),
@@ -588,7 +595,7 @@ fn clrt(cpu: &mut Cpu) {
 fn ldcsr(src: Operand, cpu: &mut Cpu) {
     assert!(src.is_register());
 
-    cpu.status.value = cpu[src].value;
+    cpu.status.value = cpu[src].value & 0x700083f3;
 }
 
 #[inline(always)]
@@ -604,7 +611,7 @@ fn ldclsr(src: Operand, cpu: &mut Cpu, mem: &mut Memory) {
 
     let v = mem.read_u32(cpu[src].value as usize);
     cpu[src].value += 4;
-    cpu.status.value = v;
+    cpu.status.value = v & 0x700083F3;
 }
 
 #[inline(always)]
@@ -821,8 +828,8 @@ fn mov_data_store_w2(dest: Operand, src: Operand, cpu: &mut Cpu, mem: &mut Memor
     assert!(dest.is_register());
     assert!(src.is_register());
 
-    mem.write_u16(cpu[dest].value as usize - 2, cpu[src].value as u16);
     cpu[dest].value -= 2;
+    mem.write_u16(cpu[dest].value as usize, cpu[src].value as u16);
 }
 
 #[inline(always)]
@@ -830,8 +837,8 @@ fn mov_data_store_l4(dest: Operand, src: Operand, cpu: &mut Cpu, mem: &mut Memor
     assert!(dest.is_register());
     assert!(src.is_register());
 
-    mem.write_u32(cpu[dest].value as usize - 4, cpu[src].value);
     cpu[dest].value -= 4;
+    mem.write_u32(cpu[dest].value as usize, cpu[src].value);
 }
 
 #[inline(always)]
@@ -883,6 +890,59 @@ fn mov_struct_store_l(dest: Operand, imm: Operand, cpu: &mut Cpu, mem: &mut Memo
 }
 
 #[inline(always)]
+fn mov_glob_load_b(disp: Operand, cpu: &mut Cpu, mem: &mut Memory) {
+    assert!(disp.is_displacement());
+
+    let v = mem.read_u8(cpu.gbr.value as usize + (disp.unwrap() as usize * 4)) as u32;
+    let e = if v & 0x80 == 0 {
+        v & 0x000000FF
+    } else {
+        v | 0xFFFFFF00
+    };
+    cpu[Operand::RegisterOperand(0)].value = e;
+}
+
+
+#[inline(always)]
+fn mov_glob_load_w(disp: Operand, cpu: &mut Cpu, mem: &mut Memory) {
+    assert!(disp.is_displacement());
+
+    let v = mem.read_u16(cpu.gbr.value as usize + (disp.unwrap() as usize * 4)) as u32;
+    let e = if v & 0x8000 == 0 {
+        v & 0x0000FFFF
+    } else {
+        v | 0xFFFF0000
+    };
+    cpu[Operand::RegisterOperand(0)].value = e;
+}
+
+#[inline(always)]
+fn mov_glob_load_l(disp: Operand, cpu: &mut Cpu, mem: &mut Memory) {
+    assert!(disp.is_displacement());
+
+    let v = mem.read_u32(cpu.gbr.value as usize + (disp.unwrap() as usize * 4));
+    cpu[Operand::RegisterOperand(0)].value = v;
+}
+
+#[inline(always)]
+fn mov_glob_store_b(disp: Operand, cpu: &mut Cpu, mem: &mut Memory) {
+    assert!(disp.is_displacement());
+
+    let address = disp.unwrap() as usize + cpu.gbr.value as usize;
+    mem.write_u8(address, cpu[Operand::RegisterOperand(0)].value as u8);
+}
+
+
+#[inline(always)]
+fn mov_glob_store_w(disp: Operand, cpu: &mut Cpu, mem: &mut Memory) {
+    assert!(disp.is_displacement());
+
+    let address = disp.unwrap() as usize * 2 + cpu.gbr.value as usize;
+    mem.write_u16(address, cpu[Operand::RegisterOperand(0)].value as u16);
+}
+
+
+#[inline(always)]
 fn mov_glob_store_l(disp: Operand, cpu: &mut Cpu, mem: &mut Memory) {
     assert!(disp.is_displacement());
 
@@ -918,6 +978,13 @@ fn swapw(dest: Operand, src: Operand, cpu: &mut Cpu) {
 
     let temp = (cpu[src].value >> 16) & 0x0000FFFF;
     cpu[dest].value = (cpu[src].value << 16) | temp;
+}
+
+#[inline(always)]
+fn stcdbr(dest: Operand, cpu: &mut Cpu) {
+    assert!(dest.is_register());
+
+    cpu[dest].value = cpu.dbr.value;
 }
 
 #[inline(always)]
@@ -987,6 +1054,21 @@ fn fmov_load_s4(dest: Operand, src: Operand, cpu: &mut Cpu, mem: &mut Memory) {
 }
 
 #[inline(always)]
+fn fmov_load_d8(dest: Operand, src: Operand, cpu: &mut Cpu, mem: &mut Memory) {
+    assert!(dest.is_register());
+    assert!(src.is_register());
+
+    let h = mem.read_u32(cpu[src].value as usize);
+    let l = mem.read_u32(cpu[src].value as usize + 4);
+    let dest1 = Operand::RegisterOperand(dest.unwrap() + 1);
+    unsafe {
+        cpu.fpu_mut(dest1).value = transmute(l);
+        cpu.fpu_mut(dest).value = transmute(h);
+    }
+    cpu[src].value += 8;
+}
+
+#[inline(always)]
 fn fmov_store_s4(dest: Operand, src: Operand, cpu: &mut Cpu, mem: &mut Memory) {
     assert!(dest.is_register());
     assert!(src.is_register());
@@ -1007,8 +1089,8 @@ fn fmov_store_d8(dest: Operand, src: Operand, cpu: &mut Cpu, mem: &mut Memory) {
     cpu[dest].value -= 8;
     let src1 = Operand::RegisterOperand(src.unwrap() + 1);
     unsafe {
-        let h = transmute::<f32, u32>(cpu.fpu(src1).value);
-        let l = transmute::<f32, u32>(cpu.fpu(src).value);
+        let h = transmute::<f32, u32>(cpu.fpu(src).value);
+        let l = transmute::<f32, u32>(cpu.fpu(src1).value);
 
         mem.write_u32(cpu[dest].value as usize, h);
         mem.write_u32(cpu[dest].value as usize + 4, l);

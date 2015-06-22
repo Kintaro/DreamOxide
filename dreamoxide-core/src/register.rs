@@ -2,7 +2,7 @@ use std::fmt::Debug;
 use std::fmt::Formatter;
 use std::fmt::Error;
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq, Eq)]
 pub struct GeneralRegister {
     pub value: u32
 }

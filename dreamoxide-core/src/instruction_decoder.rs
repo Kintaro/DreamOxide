@@ -46,6 +46,7 @@ impl InstructionDecoder {
                     0x0 => Instruction::StsMacH(op_n),
                     0x1 => Instruction::StsMacL(op_n),
                     0x2 => Instruction::StsPr(op_n),
+                    0xF => Instruction::StcDbr(op_n),
                     _   => Instruction::Nop
                 },
                 0xB => Instruction::Rts,
@@ -207,7 +208,10 @@ impl InstructionDecoder {
             0xE => Instruction::MovConstantSign(op_n, imm),
             0xF => match c4 {
                 0x0 => Instruction::FAdd(op_n, op_m),
-                0x9 => Instruction::FMovLoadS4(op_n, op_m),
+                0x9 => match n % 2 {
+                    0x0 => Instruction::FMovLoadD8(op_n, op_m),
+                    _   => Instruction::FMovLoadS4(op_n, op_m),
+                },
                 0xB => match m % 2 {
                     0x0 => Instruction::FMovStoreD8(op_n, Operand::RegisterOperand(m >> 1)),
                     _   => Instruction::FMovStoreS4(op_n, op_m)
