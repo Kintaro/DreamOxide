@@ -24,41 +24,41 @@ impl Memory {
 
         match mapped {
             // Boot and flash rom
-            x if x >= 0x00000000 && x <= 0x03ffffff => mapped,
+            0x00000000 ... 0x03ffffff => mapped,
             // Video RAM
-            x if x >= 0x04000000 && x <= 0x07ffffff => mapped,
+            0x04000000 ... 0x07ffffff => mapped,
             // Undefined
-            x if x >= 0x08000000 && x <= 0x0bffffff => mapped,
+            0x08000000 ... 0x0bffffff => mapped,
             // System RAM
-            x if x >= 0x10000000 && x <= 0x13ffffff => mapped,
+            0x10000000 ... 0x13ffffff => mapped,
             // Modem
-            x if x >= 0x14000000 && x <= 0x17ffffff => mapped,
+            0x14000000 ... 0x17ffffff => mapped,
             // Internal I/O registers
-            x if x >= 0x1c000000 && x <= 0x1fffffff => mapped,
-            // Memory mapped registers
-            x if x >= 0x1f000000 && x <= 0x1ff00fff => mapped,
+            0x1c000000 ... 0x1fffffff => mapped,
             // PVR registers
-            x if x >= 0xa05f8000 && x <= 0xa06fffff => mapped,
+            0xa05f8000 ... 0xa06fffff => mapped,
             // SPU registers
-            x if x >= 0xa0700000 && x <= 0xa07fffff => mapped,
+            0xa0700000 ... 0xa07fffff => mapped,
             // Sound RAM
-            x if x >= 0xa0800000 && x <= 0xa09fffff => mapped,
+            0xa0800000 ... 0xa09fffff => mapped,
             // Parallel Port
-            x if x >= 0xa1000000 && x <= 0xa1ffffff => mapped,
+            0xa1000000 ... 0xa1ffffff => mapped,
             // GD Rom
-            x if x >= 0xa2000000 && x <= 0xa4ffffff => mapped,
+            0xa2000000 ... 0xa4ffffff => mapped,
             // Mirror of VRAM
-            x if x >= 0xa5000000 && x <= 0xa57fffff => mapped - 0xa1000000,
+            0xa5000000 ... 0xa57fffff => mapped - 0xa1000000,
             // Mirror of memory mapped registers
-            x if x >= 0xff000000 && x <= 0xffff0fff => mapped - 0xe0000000,
-            _                                       => mapped
+            0xff000000 ... 0xffff0fff => mapped - 0xe0000000,
+            _                         => mapped
         }
     }
 
+    /// Sign-extends an unsigned byte to a signed integer
     pub fn sign_extend_u8(val: u8) -> i32 {
         val as i8 as i32
     }
 
+    /// Sign-extends an unsigned word to a signed integer
     pub fn sign_extend_u16(val: u16) -> i32 {
         val as i16 as i32
     }
