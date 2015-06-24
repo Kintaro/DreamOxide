@@ -2,9 +2,27 @@ use MemoryField;
 
 use std::fs::File;
 use std::io::Read;
+use std::sync::mpsc::{Sender, Receiver};
+
+pub struct MemoryRange(pub usize, pub usize);
+
+impl MemoryRange {
+    pub fn is_within(&self, address: usize) -> bool {
+        let &MemoryRange(l, h) = self;
+
+        address >= l && address <= h
+    }
+}
+
+pub struct MappedIO {
+    pub range: MemoryRange,
+    pub sender: Sender<(usize, Option<u32>)>,
+    pub receiver: Receiver<u32>
+}
 
 pub struct Memory {
-    pub data : Vec<MemoryField>
+    pub data : Vec<MemoryField>,
+    pub mapped: Vec<MappedIO>
 }
 
 impl Memory {
@@ -12,7 +30,9 @@ impl Memory {
     /// of 32 bit, only 26MB are necessary.
     pub fn new() -> Memory {
         Memory {
-            data: (0..0x20000000).map(|_| MemoryField::MemoryCell(0)).collect() }
+            data: (0..0x20000000).map(|_| MemoryField::MemoryCell(0)).collect(),
+            mapped: Vec::new()
+        }
     }
 
     /// Maps the given address to the correct address,
@@ -20,8 +40,9 @@ impl Memory {
     /// flags from the actual pointer.
     #[inline(always)]
     pub fn map(pointer: usize) -> usize {
+        // First remove the 3 most significant bits
         let mapped = pointer & 0x1FFFFFFF;
-
+        // Then map to the designated region
         match mapped {
             // Boot and flash rom
             0x00000000 ... 0x03ffffff => mapped,
@@ -30,9 +51,13 @@ impl Memory {
             // Undefined
             0x08000000 ... 0x0bffffff => mapped,
             // System RAM
+            0x0c000000 ... 0x0fffffff => mapped,
+            // PowerVR RAM
             0x10000000 ... 0x13ffffff => mapped,
             // Modem
             0x14000000 ... 0x17ffffff => mapped,
+            // Memory mapped registers
+            0x1f000000 ... 0x1ff0ffff => mapped,
             // Internal I/O registers
             0x1c000000 ... 0x1fffffff => mapped,
             // PVR registers
@@ -48,8 +73,41 @@ impl Memory {
             // Mirror of VRAM
             0xa5000000 ... 0xa57fffff => mapped - 0xa1000000,
             // Mirror of memory mapped registers
-            0xff000000 ... 0xffff0fff => mapped - 0xe0000000,
-            _                         => mapped
+            0xff000000 ... 0xffffffff => mapped - 0xe0000000,
+            _                         => panic!("Unknown memory area 0x{:08x}", mapped)
+        }
+    }
+
+    pub fn is_io_register(pointer: usize) -> bool {
+        match pointer {
+            0x1f000000 ... 0x1ff0ffff => true,
+            _                         => false
+        }
+    }
+
+    pub fn register_mapped_io(&mut self, mapped: MappedIO) {
+        self.mapped.push(mapped);
+    }
+
+    pub fn try_mapped_write(&self, address: usize, value: u32) -> bool {
+        let addr = Memory::map(address);
+        match self.mapped.iter().find(|ref mapped| mapped.range.is_within(addr)) {
+            Some(ref mapped_io) => {
+                mapped_io.sender.send((addr, Some(value))).unwrap();
+                true
+            },
+            _ => false
+        }
+    }
+
+    pub fn try_mapped_read(&self, address: usize) -> Option<u32> {
+        let addr = Memory::map(address);
+        match self.mapped.iter().find(|ref mapped| mapped.range.is_within(addr)) {
+            Some(ref mapped_io) => {
+                mapped_io.sender.send((addr, None)).unwrap();
+                Some(mapped_io.receiver.recv().unwrap())
+            },
+            _ => None
         }
     }
 
@@ -67,12 +125,9 @@ impl Memory {
     #[inline(always)]
     pub fn read_u8(&self, address: usize) -> u8 {
         let offset = 1 - address % 2;
+        let val = self.read_u16(address);
 
-        if let &MemoryField::MemoryCell(val) = self.access(address) {
-            ((val & (0xFF << (8 * offset))) >> (8 * offset)) as u8
-        } else {
-            0
-        }
+        ((val & (0xFF << (8 * offset))) >> (8 * offset)) as u8
     }
 
     #[inline(always)]
@@ -82,6 +137,9 @@ impl Memory {
 
     #[inline(always)]
     pub fn read_u16(&self, address: usize) -> u16 {
+        if let Some(v) = self.try_mapped_read(address) {
+            return v as u16;
+        }
         match self.access(address) {
             &MemoryField::MemoryCell(v) => v,
             _ => panic!("Can only read from memory cell!")
@@ -90,6 +148,9 @@ impl Memory {
 
     #[inline(always)]
     pub fn read_u32(&self, address: usize) -> u32 {
+        if let Some(v) = self.try_mapped_read(address) {
+            return v;
+        }
         let v1 = self.read_u16(address) as u32;
         let v2 = self.read_u16(address + 2) as u32;
 
@@ -98,6 +159,10 @@ impl Memory {
 
     #[inline(always)]
     pub fn write_u8(&mut self, address: usize, value: u8) {
+        if self.try_mapped_write(address, value as u32) {
+            return;
+        }
+
         let offset = 1 - address % 2;
         let v = self.read_u8(address) as u16;
         let mask = 0xFF << (offset * 8);
@@ -108,14 +173,18 @@ impl Memory {
 
     #[inline(always)]
     pub fn write_u16(&mut self, address: usize, value: u16) {
-        if address == 0x8c000122 {
-            println!("Writing {:4x}", value);
+        if self.try_mapped_write(address, value as u32) {
+            return;
         }
         *self.access_mut(address) = MemoryField::MemoryCell(value);
     }
 
     #[inline(always)]
     pub fn write_u32(&mut self, address: usize, value: u32) {
+        if self.try_mapped_write(address, value) {
+            return;
+        }
+
         let v1 = MemoryField::MemoryCell((value >> 16) as u16);
         let v2 = MemoryField::MemoryCell((value & 0x0000FFFF) as u16);
 
@@ -125,6 +194,7 @@ impl Memory {
 
     #[inline(always)]
     pub fn access<'a>(&'a self, address: usize) -> &'a MemoryField {
+
         &self.data[Memory::map(address) / 2]
     }
 

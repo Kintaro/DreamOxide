@@ -28,6 +28,7 @@ pub struct Cpu {
     pub spc: GeneralRegister,
     pub fpscr: GeneralRegister,
     pub fpul: GeneralRegister,
+    pub max: u32,
 }
 
 impl Cpu {
@@ -47,19 +48,24 @@ impl Cpu {
             spc: GeneralRegister { value: 0 },
             fpscr: GeneralRegister { value: 0 },
             fpul: GeneralRegister { value: 0 },
+            max: 0
         }
     }
 
     pub fn step(&mut self, mem: &mut Memory) {
+        if self.pc > self.max && self.pc < 0xa0000000 {
+            self.max = self.pc;
+            println!("Current max: 0x{:08x}", self.max);
+        }
         match mem.access(self.pc as usize) {
             &MemoryField::InstructionCell(inst) => {
                 InstructionExecuter::execute(self, mem, inst);
                 self.pc += 2;
             },
             &MemoryField::MemoryCell(val) => {
-                if val == 0xFFFF {
-                    return;
-                }
+                //if val == 0xFFFF {
+                    //return;
+                //}
                 let inst = InstructionDecoder::decode(val);
                 *mem.access_mut(self.pc as usize) = MemoryField::InstructionCell(inst);
 
@@ -68,7 +74,7 @@ impl Cpu {
                 }
 
                 InstructionExecuter::execute(self, mem, inst);
-                                self.pc += 2;
+                self.pc += 2;
             }
         }
     }
@@ -81,6 +87,12 @@ impl Cpu {
     pub fn fpu_mut<'a>(&'a mut self, reg: Operand) -> &'a mut FloatingPointRegister {
         let bank = if self.fpscr.value & 0x200000 != 0 { 16 } else { 0 };
         &mut self.fpu_registers[bank + reg.unwrap() as usize]
+    }
+
+    pub fn banked<'a>(&'a self, reg: Operand) -> &'a GeneralRegister {
+        let bank = if self.status.is_banked() && self.status.is_privileged() && reg.unwrap() < 8 { 0 } else { 16 };
+        &self.registers[bank + reg.unwrap() as usize]
+
     }
 }
 

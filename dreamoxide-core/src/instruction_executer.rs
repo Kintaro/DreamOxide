@@ -14,11 +14,17 @@ impl InstructionExecuter {
     #[inline(always)]
     pub fn execute(cpu: &mut Cpu, mem: &mut Memory, inst: Instruction) {
         //if cpu.pc >= 0x8c0010f0 && cpu.pc <= 0x8c001100 {
-        if cpu.pc == 0x8c00b588 {
-        println!("[0x{:8x}] [{:?}] <0x{:8x}> {:?}",
+        let reg = Operand::RegisterOperand(0);
+        //if cpu.pc >= 0x8c00b9F8 && cpu.pc <= 0x8c00b9F8 {
+        //if cpu.max >= 0x8c00b978 || 
+        if (cpu.pc >= 0x8c00b954 && cpu.pc <= 0x8c00b9fa) {
+        println!("[0x{:8x}] [{:?}] <0x{:8x}> <0x{:8x}> <0x{:8x}> <0x{:8x}> {:?}",
                  cpu.pc,
                  cpu.status,
-                 cpu[Operand::RegisterOperand(0)].value,
+                 cpu[reg].value,
+                 cpu[Operand::RegisterOperand(1)].value,
+                 cpu[Operand::RegisterOperand(2)].value,
+                 cpu[Operand::RegisterOperand(3)].value,
                  inst);
         }
         match inst {
@@ -26,7 +32,10 @@ impl InstructionExecuter {
             Instruction::AddConstant(dest, src) => addi(dest, src, cpu),
             Instruction::AddWithCarry(dest, src) => addc(dest, src, cpu),
             Instruction::AddOverflow(dest, src) => addv(dest, src, cpu),
+            Instruction::Sub(dest, src) => sub(dest, src, cpu),
             Instruction::MulUW(dest, src) => muluw(dest, src, cpu),
+            Instruction::ExtUB(dest, src) => extub(dest, src, cpu),
+            Instruction::ExtUW(dest, src) => extuw(dest, src, cpu),
             Instruction::MacL(dest, src) => macl(dest, src, cpu, mem),
 
             Instruction::And(dest, src) => and(dest, src, cpu),
@@ -83,6 +92,7 @@ impl InstructionExecuter {
 
             Instruction::StcGbr(dest) => stcgbr(dest, cpu),
             Instruction::StcDbr(dest) => stcdbr(dest, cpu),
+            Instruction::StcBanked(dest, reg) => stcbanked(dest, reg, cpu),
             Instruction::StsMacL(dest) => stsmacl(dest, cpu),
             Instruction::StsMacH(dest) => stsmach(dest, cpu),
             Instruction::StsLMacH(dest) => stslmach(dest, cpu, mem),
@@ -113,6 +123,7 @@ impl InstructionExecuter {
             Instruction::MovData(dest, src) => mov(dest, src, cpu),
             Instruction::MovDataBStore(dest, src) => mov_data_store_b(dest, src, cpu, mem),
             Instruction::MovDataWStore(dest, src) => mov_data_store_w(dest, src, cpu, mem),
+            Instruction::MovDataLStore(dest, src) => mov_data_store_l(dest, src, cpu, mem),
             Instruction::MovConstantSign(dest, imm) => mov_const_sign(dest, imm, cpu),
             Instruction::MovConstantLoadW(dest, disp) => mov_const_load_w(dest, disp, cpu, mem),
             Instruction::MovConstantLoadL(dest, disp) => mov_const_load_l(dest, disp, cpu, mem),
@@ -121,7 +132,6 @@ impl InstructionExecuter {
             Instruction::MovDataSignWLoad2(dest, src) => mov_data_sign_load_w2(dest, src, cpu, mem),
             Instruction::MovDataSignLLoad(dest, src) => mov_data_sign_load_l(dest, src, cpu, mem),
             Instruction::MovDataSignLLoad4(dest, src) => mov_data_sign_load_l4(dest, src, cpu, mem),
-            Instruction::MovDataLStore(dest, src) => mov_data_store_l(dest, src, cpu, mem),
             Instruction::MovDataWStore2(dest, src) => mov_data_store_w2(dest, src, cpu, mem),
             Instruction::MovDataLStore4(dest, src) => mov_data_store_l4(dest, src, cpu, mem),
             Instruction::MovDataLoadR0W(dest, src) => mov_data_load_r0w(dest, src, cpu, mem),
@@ -211,6 +221,14 @@ fn addv(dest: Operand, src: Operand, cpu: &mut Cpu) {
     }
 }
 
+#[inline(always)]
+fn sub(dest: Operand, src: Operand, cpu: &mut Cpu) {
+    assert!(dest.is_register());
+    assert!(src.is_register());
+
+    cpu[dest].value -= cpu[src].value;
+}
+
 /// Performs a 16 bit unsigned multiplication and stores it
 /// in MACL
 #[inline(always)]
@@ -219,6 +237,22 @@ fn muluw(dest: Operand, src: Operand, cpu: &mut Cpu) {
     assert!(src.is_register());
 
     cpu.macl.value = (cpu[dest].value & 0x0000FFFF) * (cpu[src].value & 0x0000FFFF);
+}
+
+#[inline(always)]
+fn extub(dest: Operand, src: Operand, cpu: &mut Cpu) {
+    assert!(dest.is_register());
+    assert!(src.is_register());
+
+    cpu[dest].value = cpu[src].value & 0x000000FF;
+}
+
+#[inline(always)]
+fn extuw(dest: Operand, src: Operand, cpu: &mut Cpu) {
+    assert!(dest.is_register());
+    assert!(src.is_register());
+
+    cpu[dest].value = cpu[src].value & 0x0000FFFF;
 }
 
 #[inline(always)]
@@ -942,15 +976,9 @@ fn mov_struct_load_w(src: Operand, disp: Operand, cpu: &mut Cpu, mem: &mut Memor
     assert!(src.is_register());
     assert!(disp.is_displacement());
 
-    let address = cpu[src].value as usize + disp.unwrap() as usize * 2;
+    let address = cpu[src].value as usize + (disp.unwrap() & 0xF) as usize * 2;
     let r0 = Operand::RegisterOperand(0);
-    cpu[r0].value = mem.read_u16(address) as u32;
-
-    if cpu[r0].value & 0x8000 == 0 {
-        cpu[r0].value &= 0x0000FFFF;
-    } else {
-        cpu[r0].value |= 0xFFFF0000;
-    }
+    cpu[r0].value = Memory::sign_extend_u16(mem.read_u16(address)) as u32;
 }
 
 #[inline(always)]
@@ -1088,6 +1116,13 @@ fn stcdbr(dest: Operand, cpu: &mut Cpu) {
     assert!(dest.is_register());
 
     cpu[dest].value = cpu.dbr.value;
+}
+
+#[inline(always)]
+fn stcbanked(dest: Operand, reg: u8, cpu: &mut Cpu) {
+    assert!(dest.is_register());
+
+    cpu[dest].value = cpu.banked(Operand::RegisterOperand(reg)).value;
 }
 
 #[inline(always)]

@@ -23,6 +23,7 @@ impl InstructionDecoder {
             0x0 => match c4 {
                 0x2 => match m {
                     0x1 => Instruction::StcGbr(op_n),
+                    x if x >= 8 => Instruction::StcBanked(op_n, x - 8),
                     _ => Instruction::Unknown,
                 },
                 0x3 => match m {
@@ -88,6 +89,7 @@ impl InstructionDecoder {
                 0x4 => Instruction::Div1(op_n, op_m),
                 0x6 => Instruction::CmpHi(op_n, op_m),
                 0x7 => Instruction::CmpGt(op_n, op_m),
+                0x8 => Instruction::Sub(op_n, op_m),
                 0xC => Instruction::Add(op_n, op_m),
                 0xE => Instruction::AddWithCarry(op_n, op_m),
                 0xF => Instruction::AddOverflow(op_n, op_m),
@@ -176,6 +178,8 @@ impl InstructionDecoder {
                 0x7 => Instruction::Not(op_n, op_m),
                 0x8 => Instruction::SwapB(op_n, op_m),
                 0x9 => Instruction::SwapW(op_n, op_m),
+                0xB => Instruction::ExtUB(op_n, op_m),
+                0xC => Instruction::ExtUW(op_n, op_m),
                 _   => Instruction::Unknown
             },
             0x7 => Instruction::AddConstant(op_n, imm),
