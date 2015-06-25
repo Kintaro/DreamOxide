@@ -12,6 +12,7 @@ pub use memory::Memory;
 pub use memory::MemoryRange;
 pub use memory::MappedIO;
 pub use bsc::Bsc;
+pub use dsp::Dsp;
 pub use instruction_executer::InstructionExecuter;
 pub use cpu::Cpu;
 pub use cpu::FPSCR_MASK;
@@ -19,6 +20,7 @@ pub use instruction_decoder::InstructionDecoder;
 
 pub mod operand;
 pub mod bsc;
+pub mod dsp;
 pub mod instruction;
 pub mod instruction_executer;
 pub mod instruction_decoder;

@@ -71,7 +71,7 @@ impl Memory {
             // GD Rom
             0xa2000000 ... 0xa4ffffff => mapped,
             // Mirror of VRAM
-            0xa5000000 ... 0xa57fffff => mapped - 0xa1000000,
+            0xa5000000 ... 0xa57fffff => mapped - 0x95000000,
             // Mirror of memory mapped registers
             0xff000000 ... 0xffffffff => mapped - 0xe0000000,
             _                         => panic!("Unknown memory area 0x{:08x}", mapped)
@@ -124,7 +124,7 @@ impl Memory {
     /// Reads an unsigned byte from memory
     #[inline(always)]
     pub fn read_u8(&self, address: usize) -> u8 {
-        let offset = 1 - address % 2;
+        let offset = address % 2;
         let val = self.read_u16(address);
 
         ((val & (0xFF << (8 * offset))) >> (8 * offset)) as u8

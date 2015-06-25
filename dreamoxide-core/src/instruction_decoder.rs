@@ -160,6 +160,7 @@ impl InstructionDecoder {
                 },
                 0xB => match m {
                     0x0 => Instruction::Jsr(op_n),
+                    0x1 => Instruction::Tas(op_n),
                     0x2 => Instruction::Jmp(op_n),
                     _   => Instruction::Unknown
                 },
@@ -180,6 +181,8 @@ impl InstructionDecoder {
                 0x9 => Instruction::SwapW(op_n, op_m),
                 0xB => Instruction::ExtUB(op_n, op_m),
                 0xC => Instruction::ExtUW(op_n, op_m),
+                0xE => Instruction::ExtSB(op_n, op_m),
+                0xF => Instruction::ExtSW(op_n, op_m),
                 _   => Instruction::Unknown
             },
             0x7 => Instruction::AddConstant(op_n, imm),

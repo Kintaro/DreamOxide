@@ -14,18 +14,24 @@ pub struct Bsc {
 }
 
 impl Bsc {
+    /// Creates a new bus controller and registers
+    /// its mapped region with the memory controller
     pub fn new(mem: &mut Memory) -> Bsc {
+        // Create the channels
         let (stx, srx): (Sender<(usize, Option<u32>)>, Receiver<(usize, Option<u32>)>) = channel();
         let (rtx, rrx): (Sender<u32>, Receiver<u32>) = channel();
 
+        // Define the mapped region
         let mapped = MappedIO {
             range: MemoryRange(0x1f80002c, 0x1f800048),
             sender: stx,
             receiver: rrx
         };
 
+        // Register the mapped region
         mem.register_mapped_io(mapped);
 
+        // Create the controller
         Bsc {
             receiver: srx,
             sender: rtx,
@@ -63,6 +69,7 @@ impl Bsc {
         }
     }
 
+    /// Read from port data register A
     fn read_pdtra(&mut self) -> u16 {
         let mut input_mask = 0;
         let mut output_mask = 0;
@@ -79,11 +86,10 @@ impl Bsc {
             self.pdtra &= !0x3;
         }
 
-        println!("Output mask: {}", output_mask);
-
         (0x300 & input_mask) | self.pdtra
     }
 
+    /// Read from port data register B
     fn read_pdtrb(&mut self) -> u16 {
         let mut input_mask = 0;
         let mut output_mask = 0;

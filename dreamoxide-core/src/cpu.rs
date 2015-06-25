@@ -55,7 +55,6 @@ impl Cpu {
     pub fn step(&mut self, mem: &mut Memory) {
         if self.pc > self.max && self.pc < 0xa0000000 {
             self.max = self.pc;
-            println!("Current max: 0x{:08x}", self.max);
         }
         match mem.access(self.pc as usize) {
             &MemoryField::InstructionCell(inst) => {
