@@ -36,6 +36,7 @@ impl Dsp {
         }
     }
 
+    #[inline(always)]
     pub fn run(&mut self) {
         loop {
             match self.receiver.recv().unwrap() {
@@ -58,10 +59,12 @@ impl Dsp {
     }
 
     /// Read from port data register A
+    #[inline(always)]
     fn read_av_ctrl(&mut self) -> u32 {
         self.av_ctrl
     }
 
+    #[inline(always)]
     fn write_av_ctrl(&mut self, value: u32) {
         self.av_ctrl = value;
     }

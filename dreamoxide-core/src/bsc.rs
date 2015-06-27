@@ -42,6 +42,7 @@ impl Bsc {
         }
     }
 
+    #[inline(always)]
     pub fn run(&mut self) {
         loop {
             match self.receiver.recv().unwrap() {
@@ -70,6 +71,7 @@ impl Bsc {
     }
 
     /// Read from port data register A
+    #[inline(always)]
     fn read_pdtra(&mut self) -> u16 {
         let mut input_mask = 0;
         let mut output_mask = 0;
@@ -90,6 +92,7 @@ impl Bsc {
     }
 
     /// Read from port data register B
+    #[inline(always)]
     fn read_pdtrb(&mut self) -> u16 {
         let mut input_mask = 0;
         let mut output_mask = 0;
@@ -109,18 +112,22 @@ impl Bsc {
         self.pdtrb
     }
 
+    #[inline(always)]
     fn write_pctra(&mut self, value: u32) {
         self.pctra = value;
     }
 
+    #[inline(always)]
     fn write_pctrb(&mut self, value: u32) {
         self.pctrb = value;
     }
 
+    #[inline(always)]
     fn write_pdtra(&mut self, value: u16) {
         self.pdtra = value;
     }
 
+    #[inline(always)]
     fn write_pdtrb(&mut self, value: u16) {
         self.pdtrb = value;
     }

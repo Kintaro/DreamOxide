@@ -16,6 +16,7 @@ pub enum Operand {
 
 impl Operand {
     /// Checks if the operand is a register
+    #[inline(always)]
     pub fn is_register(&self) -> bool {
         match *self {
             Operand::RegisterOperand(_) => true,
@@ -24,6 +25,7 @@ impl Operand {
     }
 
     /// Checks if the operand is an immediate value
+    #[inline(always)]
     pub fn is_immediate(&self) -> bool {
         match *self {
             Operand::ImmediateOperand(_) => true,
@@ -32,6 +34,7 @@ impl Operand {
     }
 
     /// Checks if the operand is a displacement constant
+    #[inline(always)]
     pub fn is_displacement(&self) -> bool {
         match *self {
             Operand::DisplacementOperand(_) => true,

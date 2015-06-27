@@ -22,10 +22,12 @@ impl StatusRegister {
         self.value & (1 << 30) == 0
     }
 
+    #[inline(always)]
     pub fn is_privileged(&self) -> bool {
         self.value & (1 << 30) > 0
     }
 
+    #[inline(always)]
     pub fn is_banked(&self) -> bool {
         self.value & (1 << 29) > 0
     }
@@ -62,10 +64,12 @@ impl StatusRegister {
         }
     }
 
+    #[inline(always)]
     pub fn is_carry(&self) -> bool {
         self.value & 0x1 > 0
     }
 
+    #[inline(always)]
     pub fn set_carry_cond(&mut self, val: bool) {
         if val {
             self.value |= 1;
