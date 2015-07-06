@@ -7,12 +7,15 @@ pub struct InstructionDecoder;
 impl InstructionDecoder {
     #[inline(always)]
     pub fn decode(code: u16) -> Instruction {
-        let c1 = (code & 0xF000) >> 12;
-        let c4 = code & 0xF;
-
-        let n = ((code & 0x0F00) >> 8) as u8;
-        let m = ((code & 0x00F0) >> 4) as u8;
-        let i = (code & 0xFF) as u8;
+        let mut inst_code = code;
+        let i = (inst_code & 0xFF) as u8;
+        let c4 = (inst_code & 0xF) as u8;
+        inst_code >>= 4;
+        let m = (inst_code & 0xF) as u8;
+        inst_code >>= 4;
+        let n = (inst_code & 0xF) as u8;
+        inst_code >>= 4;
+        let c1 = (inst_code & 0xF) as u8;
 
         let op_n = Operand::RegisterOperand(n);
         let op_m = Operand::RegisterOperand(m);

@@ -52,28 +52,25 @@ impl Cpu {
         }
     }
 
-    #[inline(always)]
     pub fn step(&mut self, mem: &mut Memory) {
-        if self.pc > self.max && self.pc < 0xa0000000 {
-            self.max = self.pc;
-        }
         match mem.access(self.pc as usize) {
             &MemoryField::InstructionCell(inst) => {
                 InstructionExecuter::execute(self, mem, inst);
-                self.pc += 2;
             },
             &MemoryField::MemoryCell(val) => {
                 let inst = InstructionDecoder::decode(val);
                 *mem.access_mut(self.pc) = MemoryField::InstructionCell(inst);
 
-                if inst == Instruction::Unknown {
-                    println!("[0x{:08x}] Could not decode {:04x}", self.pc, val);
-                }
+                //if inst == Instruction::Unknown {
+                    //println!("[0x{:08x}] Could not decode {:04x}", self.pc, val);
+                //}
 
                 InstructionExecuter::execute(self, mem, inst);
-                self.pc += 2;
-            }
+            },
+            _ => ()
         }
+
+        self.pc += 2;
     }
 
     #[inline(always)]

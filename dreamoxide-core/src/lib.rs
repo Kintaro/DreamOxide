@@ -1,6 +1,7 @@
 #![feature(step_by)]
 #![feature(convert)]
 #![feature(slice_patterns)]
+#![feature(asm)]
 pub use operand::Operand;
 pub use instruction::Instruction;
 pub use instruction::InstructionGroup;
@@ -17,6 +18,8 @@ pub use instruction_executer::InstructionExecuter;
 pub use cpu::Cpu;
 pub use cpu::FPSCR_MASK;
 pub use instruction_decoder::InstructionDecoder;
+
+extern crate latest;
 
 pub mod operand;
 pub mod bsc;

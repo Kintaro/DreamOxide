@@ -36,8 +36,8 @@ impl Operand {
     /// Checks if the operand is a displacement constant
     #[inline(always)]
     pub fn is_displacement(&self) -> bool {
-        match *self {
-            Operand::DisplacementOperand(_) => true,
+        match self {
+            &Operand::DisplacementOperand(_) => true,
             _ => false
         }
     }
@@ -46,10 +46,10 @@ impl Operand {
     /// the operand. Possible as all 3 variants are u8
     #[inline(always)]
     pub fn unwrap(&self) -> u8 {
-        match *self {
-            Operand::RegisterOperand(v) => v,
-            Operand::ImmediateOperand(v) => v,
-            Operand::DisplacementOperand(v) => v
+        match self {
+            &Operand::RegisterOperand(v) => v,
+            &Operand::ImmediateOperand(v) => v,
+            &Operand::DisplacementOperand(v) => v
         }
     }
 }

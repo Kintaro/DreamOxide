@@ -4,6 +4,8 @@ pub use Instruction;
 pub enum MemoryField {
     InstructionCell(Instruction),
     MemoryCell(u16),
+    /// This is just to yield a better memory alignment to 8 bytes
+    Padding(u32),
 }
 
 impl MemoryField {

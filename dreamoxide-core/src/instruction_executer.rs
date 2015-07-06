@@ -11,7 +11,7 @@ pub struct InstructionExecuter;
 
 impl InstructionExecuter {
     /// Execute the instruction currently pointed at by PC
-    #[inline]
+    //#[inline]
     pub fn execute(cpu: &mut Cpu, mem: &mut Memory, inst: Instruction) {
         //if cpu.pc >= 0x8c0010f0 && cpu.pc <= 0x8c001100 {
         let reg = Operand::RegisterOperand(0);
@@ -178,28 +178,28 @@ impl InstructionExecuter {
 }
 
 /// Simply add the dest and src registers
-#[inline]
+//#[inline]
 fn add(dest: Operand, src: Operand, cpu: &mut Cpu) {
-    assert!(dest.is_register());
-    assert!(src.is_register());
+    debug_assert!(dest.is_register());
+    debug_assert!(src.is_register());
 
     cpu[dest].value += cpu[src].value;
 }
 
 /// Simply add the constant to the dest register
-#[inline]
+//#[inline]
 fn addi(dest: Operand, src: Operand, cpu: &mut Cpu) {
-    assert!(dest.is_register());
-    assert!(src.is_immediate());
+    debug_assert!(dest.is_register());
+    debug_assert!(src.is_immediate());
 
     cpu[dest].value += Memory::sign_extend_u8(src.unwrap()) as u32;
 }
 
 /// Add with attention to carry flag
-#[inline]
+//#[inline]
 fn addc(dest: Operand, src: Operand, cpu: &mut Cpu) {
-    assert!(dest.is_register());
-    assert!(src.is_register());
+    debug_assert!(dest.is_register());
+    debug_assert!(src.is_register());
 
     let tmp1 = cpu[dest].value + cpu[src].value;
     let tmp0 = cpu[dest].value;
@@ -213,10 +213,10 @@ fn addc(dest: Operand, src: Operand, cpu: &mut Cpu) {
 }
 
 /// Add with overflow
-#[inline]
+//#[inline]
 fn addv(dest: Operand, src: Operand, cpu: &mut Cpu) {
-    assert!(dest.is_register());
-    assert!(src.is_register());
+    debug_assert!(dest.is_register());
+    debug_assert!(src.is_register());
 
     let d = if cpu[dest].value as i32 >= 0 { 0 } else { 1 };
     let s = if cpu[src].value as i32 >= 0 { 0 } else { 1 } + d;
@@ -232,69 +232,69 @@ fn addv(dest: Operand, src: Operand, cpu: &mut Cpu) {
     }
 }
 
-#[inline]
+//#[inline]
 fn sub(dest: Operand, src: Operand, cpu: &mut Cpu) {
-    assert!(dest.is_register());
-    assert!(src.is_register());
+    debug_assert!(dest.is_register());
+    debug_assert!(src.is_register());
 
     cpu[dest].value -= cpu[src].value;
 }
 
-#[inline]
+//#[inline]
 fn mulsw(dest: Operand, src: Operand, cpu: &mut Cpu) {
-    assert!(dest.is_register());
-    assert!(src.is_register());
+    debug_assert!(dest.is_register());
+    debug_assert!(src.is_register());
 
     cpu.macl.value = ((cpu[dest].value as i32) * (cpu[src].value as i32)) as u32;
 }
 
 /// Performs a 16 bit unsigned multiplication and stores it
 /// in MACL
-#[inline]
+//#[inline]
 fn muluw(dest: Operand, src: Operand, cpu: &mut Cpu) {
-    assert!(dest.is_register());
-    assert!(src.is_register());
+    debug_assert!(dest.is_register());
+    debug_assert!(src.is_register());
 
     cpu.macl.value = (cpu[dest].value & 0x0000FFFF) * (cpu[src].value & 0x0000FFFF);
 }
 
-#[inline]
+//#[inline]
 fn extub(dest: Operand, src: Operand, cpu: &mut Cpu) {
-    assert!(dest.is_register());
-    assert!(src.is_register());
+    debug_assert!(dest.is_register());
+    debug_assert!(src.is_register());
 
     cpu[dest].value = cpu[src].value & 0x000000FF;
 }
 
-#[inline]
+//#[inline]
 fn extuw(dest: Operand, src: Operand, cpu: &mut Cpu) {
-    assert!(dest.is_register());
-    assert!(src.is_register());
+    debug_assert!(dest.is_register());
+    debug_assert!(src.is_register());
 
     cpu[dest].value = cpu[src].value & 0x0000FFFF;
 }
 
-#[inline]
+//#[inline]
 fn extsb(dest: Operand, src: Operand, cpu: &mut Cpu) {
-    assert!(dest.is_register());
-    assert!(src.is_register());
+    debug_assert!(dest.is_register());
+    debug_assert!(src.is_register());
 
     cpu[dest].value = Memory::sign_extend_u8(cpu[src].value as u8 & 0x000000FF) as u32;
 }
 
-#[inline]
+//#[inline]
 fn extsw(dest: Operand, src: Operand, cpu: &mut Cpu) {
-    assert!(dest.is_register());
-    assert!(src.is_register());
+    debug_assert!(dest.is_register());
+    debug_assert!(src.is_register());
 
     cpu[dest].value = Memory::sign_extend_u16(cpu[src].value as u16 & 0x0000FFFF) as u32;
 }
 
 
-#[inline]
+//#[inline]
 fn macl(dest: Operand, src: Operand, cpu: &mut Cpu, mem: &mut Memory) {
-    assert!(dest.is_register());
-    assert!(src.is_register());
+    debug_assert!(dest.is_register());
+    debug_assert!(src.is_register());
 
     let rm = mem.read_u32(cpu[dest].value as usize) as i32;
     let rn = mem.read_u32(cpu[dest].value as usize) as i32;
@@ -303,153 +303,153 @@ fn macl(dest: Operand, src: Operand, cpu: &mut Cpu, mem: &mut Memory) {
     cpu[src].value += 4;
 
     let r = rm as i64 * rn as i64;
-    let mach = ((cpu.mach.value as u64) << 32) & 0xFFFFFFFF00000000;
-    let macl = (cpu.macl.value as u64) & 0x00000000FFFFFFFF;
+    let mach = (cpu.mach.value as u64) << 32;
+    let macl = cpu.macl.value as u64;
     let mac = (mach as i64 | macl as i64) + r;
 
     cpu.mach.value = (mac >> 32) as u32;
-    cpu.macl.value = (mac & 0xFFFFFFFF) as u32;
+    cpu.macl.value = mac as u32;
 }
 
 /// Bitwise AND the registers
-#[inline]
+//#[inline]
 fn and(dest: Operand, src: Operand, cpu: &mut Cpu) {
-    assert!(dest.is_register());
-    assert!(src.is_register());
+    debug_assert!(dest.is_register());
+    debug_assert!(src.is_register());
 
     cpu[dest].value &= cpu[src].value;
 }
 
 /// Bitwise AND r0 and the immediate value
-#[inline]
+//#[inline]
 fn andi(imm: Operand, cpu: &mut Cpu) {
-    assert!(imm.is_immediate());
+    debug_assert!(imm.is_immediate());
 
     cpu[Operand::RegisterOperand(0)].value &= 0x000000FF & imm.unwrap() as u32;
 }
 
 /// Bitwise AND
-#[inline]
+//#[inline]
 fn andb(imm: Operand, cpu: &mut Cpu) {
-    assert!(imm.is_immediate());
+    debug_assert!(imm.is_immediate());
 }
 
 /// Bitwise OR the registers
-#[inline]
+//#[inline]
 fn or(dest: Operand, src: Operand, cpu: &mut Cpu) {
-    assert!(dest.is_register());
-    assert!(src.is_register());
+    debug_assert!(dest.is_register());
+    debug_assert!(src.is_register());
 
     cpu[dest].value |= cpu[src].value;
 }
 
 /// Bitwise OR r0 and the immediate value
-#[inline]
+//#[inline]
 fn ori(imm: Operand, cpu: &mut Cpu) {
-    assert!(imm.is_immediate());
+    debug_assert!(imm.is_immediate());
 
     cpu[Operand::RegisterOperand(0)].value |= 0x000000FF & imm.unwrap() as u32;
 }
 
 /// Bitwise OR
-#[inline]
+//#[inline]
 fn orb(imm: Operand, cpu: &mut Cpu) {
-    assert!(imm.is_immediate());
+    debug_assert!(imm.is_immediate());
 }
 
-#[inline]
+//#[inline]
 fn xor(dest: Operand, src: Operand, cpu: &mut Cpu) {
-    assert!(dest.is_register());
-    assert!(src.is_register());
+    debug_assert!(dest.is_register());
+    debug_assert!(src.is_register());
 
     cpu[dest].value ^= cpu[src].value;
 }
 
-#[inline]
+//#[inline]
 fn xori(imm: Operand, cpu: &mut Cpu) {
-    assert!(imm.is_immediate());
+    debug_assert!(imm.is_immediate());
 
     cpu[Operand::RegisterOperand(0)].value ^= 0x000000FF & imm.unwrap() as u32;
 }
 
-#[inline]
+//#[inline]
 fn xorb(imm: Operand, cpu: &mut Cpu) {
-    assert!(imm.is_immediate());
+    debug_assert!(imm.is_immediate());
 }
 
-#[inline]
+//#[inline]
 fn cmpeqimm(imm: Operand, cpu: &mut Cpu) {
-    assert!(imm.is_immediate());
+    debug_assert!(imm.is_immediate());
 
     let v = Memory::sign_extend_u8(imm.unwrap()) as u32;
     let eq = cpu[Operand::RegisterOperand(0)].value == v;
     cpu.status.set_carry_cond(eq);
 }
 
-#[inline]
+//#[inline]
 fn cmpeq(dest: Operand, src: Operand, cpu: &mut Cpu) {
-    assert!(dest.is_register());
-    assert!(src.is_register());
+    debug_assert!(dest.is_register());
+    debug_assert!(src.is_register());
 
     let v = cpu[dest].value == cpu[src].value;
     cpu.status.set_carry_cond(v);
 }
 
-#[inline]
+//#[inline]
 fn cmpge(dest: Operand, src: Operand, cpu: &mut Cpu) {
-    assert!(dest.is_register());
-    assert!(src.is_register());
+    debug_assert!(dest.is_register());
+    debug_assert!(src.is_register());
 
     let v = cpu[dest].value as i32 >= cpu[src].value as i32;
     cpu.status.set_carry_cond(v);
 }
 
-#[inline]
+//#[inline]
 fn cmpgt(dest: Operand, src: Operand, cpu: &mut Cpu) {
-    assert!(dest.is_register());
-    assert!(src.is_register());
+    debug_assert!(dest.is_register());
+    debug_assert!(src.is_register());
 
     let v = cpu[dest].value as i32 > cpu[src].value as i32;
     cpu.status.set_carry_cond(v);
 }
 
-#[inline]
+//#[inline]
 fn cmphs(dest: Operand, src: Operand, cpu: &mut Cpu) {
-    assert!(dest.is_register());
-    assert!(src.is_register());
+    debug_assert!(dest.is_register());
+    debug_assert!(src.is_register());
 
     let v = cpu[dest].value >= cpu[src].value;
     cpu.status.set_carry_cond(v);
 }
 
-#[inline]
+//#[inline]
 fn cmphi(dest: Operand, src: Operand, cpu: &mut Cpu) {
-    assert!(src.is_register());
+    debug_assert!(src.is_register());
 
     let v = cpu[dest].value > cpu[src].value;
     cpu.status.set_carry_cond(v);
 }
 
-#[inline]
+//#[inline]
 fn cmppl(src: Operand, cpu: &mut Cpu) {
-    assert!(src.is_register());
+    debug_assert!(src.is_register());
 
     let val = cpu[src].value as i32 > 0;
     cpu.status.set_carry_cond(val);
 }
 
-#[inline]
+//#[inline]
 fn cmppz(src: Operand, cpu: &mut Cpu) {
-    assert!(src.is_register());
+    debug_assert!(src.is_register());
 
     let val = cpu[src].value as i32 >= 0;
     cpu.status.set_carry_cond(val);
 }
 
-#[inline]
+//#[inline]
 fn cmpstr(dest: Operand, src: Operand, cpu: &mut Cpu) {
-    assert!(dest.is_register());
-    assert!(src.is_register());
+    debug_assert!(dest.is_register());
+    debug_assert!(src.is_register());
 
     let temp = cpu[dest].value ^ cpu[src].value;
     let hh = (temp & 0xFF000000) >> 24;
@@ -461,79 +461,79 @@ fn cmpstr(dest: Operand, src: Operand, cpu: &mut Cpu) {
     cpu.status.set_carry_cond(!r);
 }
 
-#[inline]
+//#[inline]
 fn tst(dest: Operand, src: Operand, cpu: &mut Cpu) {
-    assert!(dest.is_register());
-    assert!(src.is_register());
+    debug_assert!(dest.is_register());
+    debug_assert!(src.is_register());
 
     let temp = cpu[dest].value & cpu[src].value;
     cpu.status.set_carry_cond(temp == 0);
 }
 
-#[inline]
+//#[inline]
 fn tsti(imm: Operand, cpu: &mut Cpu) {
-    assert!(imm.is_immediate());
+    debug_assert!(imm.is_immediate());
 
     let temp = cpu[Operand::RegisterOperand(0)].value & (0x000000FF & imm.unwrap() as u32);
     cpu.status.set_carry_cond(temp == 0);
 }
 
-#[inline]
+//#[inline]
 fn tstb(imm: Operand, cpu: &mut Cpu) {
-    assert!(imm.is_immediate());
+    debug_assert!(imm.is_immediate());
 
     let temp = cpu[Operand::RegisterOperand(0)].value & (0x000000FF & imm.unwrap() as u32);
     cpu.status.set_carry_cond(temp == 0);
 }
 
-#[inline]
+//#[inline]
 fn tas(dest: Operand, cpu: &mut Cpu, mem: &mut Memory) {
-    assert!(dest.is_register());
+    debug_assert!(dest.is_register());
 
     let temp = mem.read_u8(cpu[dest].value as usize);
     cpu.status.set_carry_cond(temp == 0);
     mem.write_u8(cpu[dest].value as usize, temp | 0x80);
 }
 
-#[inline]
+//#[inline]
 fn dt(dest: Operand, cpu: &mut Cpu) {
-    assert!(dest.is_register());
+    debug_assert!(dest.is_register());
 
     cpu[dest].value -= 1;
     let v = cpu[dest].value;
     cpu.status.set_carry_cond(v == 0);
 }
 
-#[inline]
+//#[inline]
 fn shll(dest: Operand, cpu: &mut Cpu) {
-    assert!(dest.is_register());
+    debug_assert!(dest.is_register());
 
     let v = cpu[dest].value;
     cpu.status.set_carry_cond(v & 0x80000000 != 0);
     cpu[dest].value <<= 1;
 }
 
-#[inline]
+//#[inline]
 fn shll2(dest: Operand, cpu: &mut Cpu) {
-    assert!(dest.is_register());
+    debug_assert!(dest.is_register());
     cpu[dest].value <<= 2;
 }
 
-#[inline]
+//#[inline]
 fn shll8(dest: Operand, cpu: &mut Cpu) {
-    assert!(dest.is_register());
+    debug_assert!(dest.is_register());
     cpu[dest].value <<= 8;
 }
 
-#[inline]
+//#[inline]
 fn shll16(dest: Operand, cpu: &mut Cpu) {
-    assert!(dest.is_register());
+    debug_assert!(dest.is_register());
     cpu[dest].value <<= 16;
 }
 
-#[inline]
+//#[inline]
 fn shlr(dest: Operand, cpu: &mut Cpu) {
-    assert!(dest.is_register());
+    debug_assert!(dest.is_register());
 
     let v = cpu[dest].value;
     cpu.status.set_carry_cond(v & 0x00000001 != 0);
@@ -541,42 +541,42 @@ fn shlr(dest: Operand, cpu: &mut Cpu) {
     cpu[dest].value &= 0x7fffffff;
 }
 
-#[inline]
+//#[inline]
 fn shlr2(dest: Operand, cpu: &mut Cpu) {
-    assert!(dest.is_register());
+    debug_assert!(dest.is_register());
 
     cpu[dest].value >>= 2;
     cpu[dest].value &= 0x3fffffff;
 }
 
-#[inline]
+//#[inline]
 fn shlr8(dest: Operand, cpu: &mut Cpu) {
-    assert!(dest.is_register());
+    debug_assert!(dest.is_register());
 
     cpu[dest].value >>= 8;
     cpu[dest].value &= 0x00ffffff;
 }
 
-#[inline]
+//#[inline]
 fn shlr16(dest: Operand, cpu: &mut Cpu) {
-    assert!(dest.is_register());
+    debug_assert!(dest.is_register());
 
     cpu[dest].value >>= 16;
     cpu[dest].value &= 0x0000ffff;
 }
 
-#[inline]
+//#[inline]
 fn rotr(dest: Operand, cpu: &mut Cpu) {
-    assert!(dest.is_register());
+    debug_assert!(dest.is_register());
 
     let v = cpu[dest].value & 0x1 != 0;
     cpu.status.set_carry_cond(v);
     cpu[dest].value = cpu[dest].value.rotate_right(1);
 }
 
-#[inline]
+//#[inline]
 fn shar(dest: Operand, cpu: &mut Cpu) {
-    assert!(dest.is_register());
+    debug_assert!(dest.is_register());
 
     let t = cpu[dest].value & 0x1 != 0;
     cpu.status.set_carry_cond(t);
@@ -591,9 +591,9 @@ fn shar(dest: Operand, cpu: &mut Cpu) {
     }
 }
 
-#[inline]
+//#[inline]
 fn bf(disp: Operand, cpu: &mut Cpu) {
-    assert!(disp.is_displacement());
+    debug_assert!(disp.is_displacement());
 
     let d = Memory::sign_extend_u8(disp.unwrap()) as usize;
 
@@ -602,9 +602,9 @@ fn bf(disp: Operand, cpu: &mut Cpu) {
     }
 }
 
-#[inline]
+//#[inline]
 fn bt(disp: Operand, cpu: &mut Cpu) {
-    assert!(disp.is_displacement());
+    debug_assert!(disp.is_displacement());
 
     let d = Memory::sign_extend_u8(disp.unwrap()) as usize;
 
@@ -613,9 +613,9 @@ fn bt(disp: Operand, cpu: &mut Cpu) {
     }
 }
 
-#[inline]
+//#[inline]
 fn bfs(disp: Operand, cpu: &mut Cpu, mem: &mut Memory) {
-    assert!(disp.is_displacement());
+    debug_assert!(disp.is_displacement());
 
     let d = Memory::sign_extend_u8(disp.unwrap()) as usize;
 
@@ -632,9 +632,9 @@ fn bfs(disp: Operand, cpu: &mut Cpu, mem: &mut Memory) {
     }
 }
 
-#[inline]
+//#[inline]
 fn bts(disp: Operand, cpu: &mut Cpu, mem: &mut Memory) {
-    assert!(disp.is_displacement());
+    debug_assert!(disp.is_displacement());
 
     let d = Memory::sign_extend_u8(disp.unwrap()) as usize;
 
@@ -651,10 +651,10 @@ fn bts(disp: Operand, cpu: &mut Cpu, mem: &mut Memory) {
     }
 }
 
-#[inline]
+//#[inline]
 fn bra(n: Operand, disp: Operand, cpu: &mut Cpu, mem: &mut Memory) {
-    assert!(n.is_register());
-    assert!(disp.is_displacement());
+    debug_assert!(n.is_register());
+    debug_assert!(disp.is_displacement());
 
     let d = ((n.unwrap() as usize) << 8) | (disp.unwrap() as usize);
     let off = if d & 0x800 == 0 {
@@ -669,9 +669,9 @@ fn bra(n: Operand, disp: Operand, cpu: &mut Cpu, mem: &mut Memory) {
     cpu.pc = temp + 2 + (off * 2);
 }
 
-#[inline]
+//#[inline]
 fn braf(dest: Operand, cpu: &mut Cpu, mem: &mut Memory) {
-    assert!(dest.is_register());
+    debug_assert!(dest.is_register());
 
     let temp = cpu.pc + 2 + cpu[dest].value as usize;
     cpu.pc += 2;
@@ -679,10 +679,10 @@ fn braf(dest: Operand, cpu: &mut Cpu, mem: &mut Memory) {
     cpu.pc = temp;
 }
 
-#[inline]
+//#[inline]
 fn bsr(n: Operand, d: Operand, cpu: &mut Cpu, mem: &mut Memory) {
-    assert!(n.is_register());
-    assert!(d.is_displacement());
+    debug_assert!(n.is_register());
+    debug_assert!(d.is_displacement());
 
     let temp = cpu.pc;
 
@@ -699,9 +699,9 @@ fn bsr(n: Operand, d: Operand, cpu: &mut Cpu, mem: &mut Memory) {
     cpu.pc = temp + 2 + (disp << 1);
 }
 
-#[inline]
+//#[inline]
 fn bsrf(dest: Operand, cpu: &mut Cpu, mem: &mut Memory) {
-    assert!(dest.is_register());
+    debug_assert!(dest.is_register());
 
     let temp = cpu.pc + 2 + cpu[dest].value as usize;
     cpu.pr = cpu.pc + 4;
@@ -710,9 +710,9 @@ fn bsrf(dest: Operand, cpu: &mut Cpu, mem: &mut Memory) {
     cpu.pc = temp;
 }
 
-#[inline]
+//#[inline]
 fn jmp(dest: Operand, cpu: &mut Cpu, mem: &mut Memory) {
-    assert!(dest.is_register());
+    debug_assert!(dest.is_register());
 
     let temp = cpu[dest].value as usize;
     cpu.pc += 2;
@@ -720,9 +720,9 @@ fn jmp(dest: Operand, cpu: &mut Cpu, mem: &mut Memory) {
     cpu.pc = temp - 2;
 }
 
-#[inline]
+//#[inline]
 fn jsr(dest: Operand, cpu: &mut Cpu, mem: &mut Memory) {
-    assert!(dest.is_register());
+    debug_assert!(dest.is_register());
 
     let temp = cpu[dest].value as usize;
 
@@ -732,7 +732,7 @@ fn jsr(dest: Operand, cpu: &mut Cpu, mem: &mut Memory) {
     cpu.pc = temp - 2;
 }
 
-#[inline]
+//#[inline]
 fn rts(cpu: &mut Cpu, mem: &mut Memory) {
     let temp = cpu.pr;
     cpu.pc += 2;
@@ -740,213 +740,213 @@ fn rts(cpu: &mut Cpu, mem: &mut Memory) {
     cpu.pc = temp - 2;
 }
 
-#[inline]
+//#[inline]
 fn clrs(cpu: &mut Cpu) {
     cpu.status.set_saturated_cond(false);
 }
 
-#[inline]
+//#[inline]
 fn clrt(cpu: &mut Cpu) {
     cpu.status.set_carry_cond(false);
 }
 
-#[inline]
+//#[inline]
 fn sets(cpu: &mut Cpu) {
     cpu.status.set_saturated_cond(true);
 }
 
-#[inline]
+//#[inline]
 fn sett(cpu: &mut Cpu) {
     cpu.status.set_carry_cond(true);
 }
 
-#[inline]
+//#[inline]
 fn ldcsr(src: Operand, cpu: &mut Cpu) {
-    assert!(src.is_register());
+    debug_assert!(src.is_register());
 
     cpu.status.value = cpu[src].value & 0x700083f3;
 }
 
-#[inline]
+//#[inline]
 fn ldcdbr(src: Operand, cpu: &mut Cpu) {
-    assert!(src.is_register());
+    debug_assert!(src.is_register());
 
     cpu.dbr.value = cpu[src].value;
 }
 
-#[inline]
+//#[inline]
 fn ldclsr(src: Operand, cpu: &mut Cpu, mem: &mut Memory) {
-    assert!(src.is_register());
+    debug_assert!(src.is_register());
 
     let v = mem.read_u32(cpu[src].value as usize);
     cpu[src].value += 4;
     cpu.status.value = v & 0x700083F3;
 }
 
-#[inline]
+//#[inline]
 fn ldclgbr(src: Operand, cpu: &mut Cpu, mem: &mut Memory) {
-    assert!(src.is_register());
+    debug_assert!(src.is_register());
 
     let v = mem.read_u32(cpu[src].value as usize);
     cpu[src].value += 4;
     cpu.gbr.value = v;
 }
-#[inline]
+//#[inline]
 fn ldclvbr(src: Operand, cpu: &mut Cpu, mem: &mut Memory) {
-    assert!(src.is_register());
+    debug_assert!(src.is_register());
 
     let v = mem.read_u32(cpu[src].value as usize);
     cpu[src].value += 4;
     cpu.vbr.value = v;
 }
 
-#[inline]
+//#[inline]
 fn ldclssr(src: Operand, cpu: &mut Cpu, mem: &mut Memory) {
-    assert!(src.is_register());
+    debug_assert!(src.is_register());
 
     let v = mem.read_u32(cpu[src].value as usize);
     cpu[src].value += 4;
     cpu.ssr.value = v;
 }
 
-#[inline]
+//#[inline]
 fn ldclspc(src: Operand, cpu: &mut Cpu, mem: &mut Memory) {
-    assert!(src.is_register());
+    debug_assert!(src.is_register());
 
     let v = mem.read_u32(cpu[src].value as usize);
     cpu[src].value += 4;
     cpu.spc.value = v;
 }
 
-#[inline]
+//#[inline]
 fn ldspr(src: Operand, cpu: &mut Cpu) {
-    assert!(src.is_register());
+    debug_assert!(src.is_register());
 
     cpu.pr = cpu[src].value as usize;
 }
 
-#[inline]
+//#[inline]
 fn ldslmacl(src: Operand, cpu: &mut Cpu, mem: &mut Memory) {
-    assert!(src.is_register());
+    debug_assert!(src.is_register());
 
     let v = mem.read_u32(cpu[src].value as usize);
     cpu[src].value += 4;
     cpu.macl.value = v;
 }
 
-#[inline]
+//#[inline]
 fn ldslmach(src: Operand, cpu: &mut Cpu, mem: &mut Memory) {
-    assert!(src.is_register());
+    debug_assert!(src.is_register());
 
     let v = mem.read_u32(cpu[src].value as usize);
     cpu[src].value += 4;
     cpu.mach.value = v;
 }
 
-#[inline]
+//#[inline]
 fn ldslpr(src: Operand, cpu: &mut Cpu, mem: &mut Memory) {
-    assert!(src.is_register());
+    debug_assert!(src.is_register());
 
     let v = mem.read_u32(cpu[src].value as usize) as usize;
     cpu[src].value += 4;
     cpu.pr = v;
 }
 
-#[inline]
+//#[inline]
 fn ldsfpscr(src: Operand, cpu: &mut Cpu) {
-    assert!(src.is_register());
+    debug_assert!(src.is_register());
 
     cpu.fpscr.value = cpu[src].value & FPSCR_MASK;
 }
 
-#[inline]
+//#[inline]
 fn ldsfpscrl(src: Operand, cpu: &mut Cpu, mem: &mut Memory) {
-    assert!(src.is_register());
+    debug_assert!(src.is_register());
 
     let v = mem.read_u32(cpu[src].value as usize);
     cpu[src].value += 4;
     cpu.fpscr.value = v;
 }
 
-#[inline]
+//#[inline]
 fn ldsfpull(src: Operand, cpu: &mut Cpu, mem: &mut Memory) {
-    assert!(src.is_register());
+    debug_assert!(src.is_register());
 
     let v = mem.read_u32(cpu[src].value as usize);
     cpu[src].value += 4;
     cpu.fpul.value = v;
 }
 
-#[inline]
+//#[inline]
 fn mov(dest: Operand, src: Operand, cpu: &mut Cpu) {
-    assert!(dest.is_register());
-    assert!(src.is_register());
+    debug_assert!(dest.is_register());
+    debug_assert!(src.is_register());
 
     cpu[dest].value = cpu[src].value;
 }
 
-#[inline]
+//#[inline]
 fn mov_data_store_b(dest: Operand, src: Operand, cpu: &mut Cpu, mem: &mut Memory) {
-    assert!(dest.is_register());
-    assert!(src.is_register());
+    debug_assert!(dest.is_register());
+    debug_assert!(src.is_register());
 
     mem.write_u8(cpu[dest].value as usize, cpu[src].value as u8);
 }
 
-#[inline]
+//#[inline]
 fn mov_data_store_w(dest: Operand, src: Operand, cpu: &mut Cpu, mem: &mut Memory) {
-    assert!(dest.is_register());
-    assert!(src.is_register());
+    debug_assert!(dest.is_register());
+    debug_assert!(src.is_register());
 
     mem.write_u16(cpu[dest].value as usize, cpu[src].value as u16);
 }
 
-#[inline]
+//#[inline]
 fn mov_const_sign(dest: Operand, imm: Operand, cpu: &mut Cpu) {
-    assert!(dest.is_register());
-    assert!(imm.is_immediate());
+    debug_assert!(dest.is_register());
+    debug_assert!(imm.is_immediate());
 
     cpu[dest].value = Memory::sign_extend_u8(imm.unwrap()) as u32;
 }
 
-#[inline]
+//#[inline]
 fn mov_const_load_w(dest: Operand, disp: Operand, cpu: &mut Cpu, mem: &mut Memory) {
-    assert!(dest.is_register());
-    assert!(disp.is_displacement());
+    debug_assert!(dest.is_register());
+    debug_assert!(disp.is_displacement());
 
     let address = cpu.pc + 4 + (disp.unwrap() as usize * 2);
     cpu[dest].value = Memory::sign_extend_u16(mem.read_u16(address)) as u32;
 }
 
-#[inline]
+//#[inline]
 fn mov_const_load_l(dest: Operand, disp: Operand, cpu: &mut Cpu, mem: &mut Memory) {
-    assert!(dest.is_register());
-    assert!(disp.is_displacement());
+    debug_assert!(dest.is_register());
+    debug_assert!(disp.is_displacement());
 
     let address = (cpu.pc & 0xFFFFFFFC) as usize + 4 + (disp.unwrap() as usize * 4);
     cpu[dest].value = mem.read_u32(address);
 }
 
-#[inline]
+//#[inline]
 fn mov_data_sign_load_b(dest: Operand, src: Operand, cpu: &mut Cpu, mem: &mut Memory) {
-    assert!(dest.is_register());
-    assert!(src.is_register());
+    debug_assert!(dest.is_register());
+    debug_assert!(src.is_register());
 
     cpu[dest].value = Memory::sign_extend_u8(mem.read_u8(cpu[src].value as usize)) as u32;
 }
 
-#[inline]
+//#[inline]
 fn mov_data_sign_load_w(dest: Operand, src: Operand, cpu: &mut Cpu, mem: &mut Memory) {
-    assert!(dest.is_register());
-    assert!(src.is_register());
+    debug_assert!(dest.is_register());
+    debug_assert!(src.is_register());
 
     cpu[dest].value = Memory::sign_extend_u16(mem.read_u16(cpu[src].value as usize)) as u32;
 }
 
-#[inline]
+//#[inline]
 fn mov_data_sign_load_b1(dest: Operand, src: Operand, cpu: &mut Cpu, mem: &mut Memory) {
-    assert!(dest.is_register());
-    assert!(src.is_register());
+    debug_assert!(dest.is_register());
+    debug_assert!(src.is_register());
 
     cpu[dest].value = Memory::sign_extend_u8(mem.read_u8(cpu[src].value as usize)) as u32;
 
@@ -956,10 +956,10 @@ fn mov_data_sign_load_b1(dest: Operand, src: Operand, cpu: &mut Cpu, mem: &mut M
 }
 
 
-#[inline]
+//#[inline]
 fn mov_data_sign_load_w2(dest: Operand, src: Operand, cpu: &mut Cpu, mem: &mut Memory) {
-    assert!(dest.is_register());
-    assert!(src.is_register());
+    debug_assert!(dest.is_register());
+    debug_assert!(src.is_register());
 
     cpu[dest].value = Memory::sign_extend_u16(mem.read_u16(cpu[src].value as usize)) as u32;
 
@@ -968,19 +968,19 @@ fn mov_data_sign_load_w2(dest: Operand, src: Operand, cpu: &mut Cpu, mem: &mut M
     }
 }
 
-#[inline]
+//#[inline]
 fn mov_data_sign_load_l(dest: Operand, src: Operand, cpu: &mut Cpu, mem: &mut Memory) {
-    assert!(dest.is_register());
-    assert!(src.is_register());
+    debug_assert!(dest.is_register());
+    debug_assert!(src.is_register());
 
     let v = mem.read_u32(cpu[src].value as usize);
     cpu[dest].value = v;
 }
 
-#[inline]
+//#[inline]
 fn mov_data_sign_load_l4(dest: Operand, src: Operand, cpu: &mut Cpu, mem: &mut Memory) {
-    assert!(dest.is_register());
-    assert!(src.is_register());
+    debug_assert!(dest.is_register());
+    debug_assert!(src.is_register());
 
     let v = mem.read_u32(cpu[src].value as usize);
     cpu[dest].value = v;
@@ -990,72 +990,72 @@ fn mov_data_sign_load_l4(dest: Operand, src: Operand, cpu: &mut Cpu, mem: &mut M
     }
 }
 
-#[inline]
+//#[inline]
 fn mov_data_store_l(dest: Operand, src: Operand, cpu: &mut Cpu, mem: &mut Memory) {
-    assert!(dest.is_register());
-    assert!(src.is_register());
+    debug_assert!(dest.is_register());
+    debug_assert!(src.is_register());
 
     mem.write_u32(cpu[dest].value as usize, cpu[src].value);
 }
 
-#[inline]
+//#[inline]
 fn mov_data_store_b1(dest: Operand, src: Operand, cpu: &mut Cpu, mem: &mut Memory) {
-    assert!(dest.is_register());
-    assert!(src.is_register());
+    debug_assert!(dest.is_register());
+    debug_assert!(src.is_register());
 
     cpu[dest].value -= 1;
     mem.write_u8(cpu[dest].value as usize, cpu[src].value as u8);
 }
 
-#[inline]
+//#[inline]
 fn mov_data_store_w2(dest: Operand, src: Operand, cpu: &mut Cpu, mem: &mut Memory) {
-    assert!(dest.is_register());
-    assert!(src.is_register());
+    debug_assert!(dest.is_register());
+    debug_assert!(src.is_register());
 
     cpu[dest].value -= 2;
     mem.write_u16(cpu[dest].value as usize, cpu[src].value as u16);
 }
 
-#[inline]
+//#[inline]
 fn mov_data_store_l4(dest: Operand, src: Operand, cpu: &mut Cpu, mem: &mut Memory) {
-    assert!(dest.is_register());
-    assert!(src.is_register());
+    debug_assert!(dest.is_register());
+    debug_assert!(src.is_register());
 
     cpu[dest].value -= 4;
     mem.write_u32(cpu[dest].value as usize, cpu[src].value);
 }
 
-#[inline]
+//#[inline]
 fn mov_data_load_r0w(dest: Operand, src: Operand, cpu: &mut Cpu, mem: &mut Memory) {
-    assert!(dest.is_register());
-    assert!(src.is_register());
+    debug_assert!(dest.is_register());
+    debug_assert!(src.is_register());
 
     let v = mem.read_u16(cpu[src].value as usize + cpu[Operand::RegisterOperand(0)].value as usize);
     cpu[dest].value = Memory::sign_extend_u16(v) as u32;
 }
 
-#[inline]
+//#[inline]
 fn mov_data_load_r0l(dest: Operand, src: Operand, cpu: &mut Cpu, mem: &mut Memory) {
-    assert!(dest.is_register());
-    assert!(src.is_register());
+    debug_assert!(dest.is_register());
+    debug_assert!(src.is_register());
 
     let v = mem.read_u32(cpu[src].value as usize + cpu[Operand::RegisterOperand(0)].value as usize);
     cpu[dest].value = v;
 }
 
 
-#[inline]
+//#[inline]
 fn mov_data_store_r0b(dest: Operand, src: Operand, cpu: &mut Cpu, mem: &mut Memory) {
-    assert!(dest.is_register());
-    assert!(src.is_register());
+    debug_assert!(dest.is_register());
+    debug_assert!(src.is_register());
 
     mem.write_u32(cpu[dest].value as usize + cpu[Operand::RegisterOperand(0)].value as usize, cpu[src].value);
 }
 
-#[inline]
+//#[inline]
 fn mov_struct_load_b(src: Operand, disp: Operand, cpu: &mut Cpu, mem: &mut Memory) {
-    assert!(src.is_register());
-    assert!(disp.is_displacement());
+    debug_assert!(src.is_register());
+    debug_assert!(disp.is_displacement());
 
     let address = cpu[src].value as usize + (disp.unwrap() & 0xF) as usize * 2;
     let r0 = Operand::RegisterOperand(0);
@@ -1063,20 +1063,20 @@ fn mov_struct_load_b(src: Operand, disp: Operand, cpu: &mut Cpu, mem: &mut Memor
 }
 
 
-#[inline]
+//#[inline]
 fn mov_struct_load_w(src: Operand, disp: Operand, cpu: &mut Cpu, mem: &mut Memory) {
-    assert!(src.is_register());
-    assert!(disp.is_displacement());
+    debug_assert!(src.is_register());
+    debug_assert!(disp.is_displacement());
 
     let address = cpu[src].value as usize + (disp.unwrap() & 0xF) as usize * 2;
     let r0 = Operand::RegisterOperand(0);
     cpu[r0].value = Memory::sign_extend_u16(mem.read_u16(address)) as u32;
 }
 
-#[inline]
+//#[inline]
 fn mov_struct_load_l(dest: Operand, imm: Operand, cpu: &mut Cpu, mem: &mut Memory) {
-    assert!(dest.is_register());
-    assert!(imm.is_immediate());
+    debug_assert!(dest.is_register());
+    debug_assert!(imm.is_immediate());
 
     let m = Operand::RegisterOperand((imm.unwrap() & 0xF0) >> 4);
     let d = imm.unwrap() & 0xF;
@@ -1084,20 +1084,20 @@ fn mov_struct_load_l(dest: Operand, imm: Operand, cpu: &mut Cpu, mem: &mut Memor
     cpu[dest].value = mem.read_u32(address);
 }
 
-#[inline]
+//#[inline]
 fn mov_struct_store_w(dest: Operand, disp: Operand, cpu: &mut Cpu, mem: &mut Memory) {
-    assert!(dest.is_register());
-    assert!(disp.is_displacement());
+    debug_assert!(dest.is_register());
+    debug_assert!(disp.is_displacement());
 
     let address = cpu[dest].value as usize + disp.unwrap() as usize * 2;
     let r0 = Operand::RegisterOperand(0);
     mem.write_u16(address, cpu[r0].value as u16);
 }
 
-#[inline]
+//#[inline]
 fn mov_struct_store_l(dest: Operand, imm: Operand, cpu: &mut Cpu, mem: &mut Memory) {
-    assert!(dest.is_register());
-    assert!(imm.is_immediate());
+    debug_assert!(dest.is_register());
+    debug_assert!(imm.is_immediate());
 
     let m = Operand::RegisterOperand((imm.unwrap() & 0xF0) >> 4);
     let d = imm.unwrap() & 0xF;
@@ -1105,9 +1105,9 @@ fn mov_struct_store_l(dest: Operand, imm: Operand, cpu: &mut Cpu, mem: &mut Memo
     mem.write_u32(address, cpu[m].value);
 }
 
-#[inline]
+//#[inline]
 fn mov_glob_load_b(disp: Operand, cpu: &mut Cpu, mem: &mut Memory) {
-    assert!(disp.is_displacement());
+    debug_assert!(disp.is_displacement());
 
     let v = mem.read_u8(cpu.gbr.value as usize + (disp.unwrap() as usize * 4)) as u32;
     let e = if v & 0x80 == 0 {
@@ -1119,9 +1119,9 @@ fn mov_glob_load_b(disp: Operand, cpu: &mut Cpu, mem: &mut Memory) {
 }
 
 
-#[inline]
+//#[inline]
 fn mov_glob_load_w(disp: Operand, cpu: &mut Cpu, mem: &mut Memory) {
-    assert!(disp.is_displacement());
+    debug_assert!(disp.is_displacement());
 
     let v = mem.read_u16(cpu.gbr.value as usize + (disp.unwrap() as usize * 4)) as u32;
     let e = if v & 0x8000 == 0 {
@@ -1132,43 +1132,43 @@ fn mov_glob_load_w(disp: Operand, cpu: &mut Cpu, mem: &mut Memory) {
     cpu[Operand::RegisterOperand(0)].value = e;
 }
 
-#[inline]
+//#[inline]
 fn mov_glob_load_l(disp: Operand, cpu: &mut Cpu, mem: &mut Memory) {
-    assert!(disp.is_displacement());
+    debug_assert!(disp.is_displacement());
 
     let v = mem.read_u32(cpu.gbr.value as usize + (disp.unwrap() as usize * 4));
     cpu[Operand::RegisterOperand(0)].value = v;
 }
 
-#[inline]
+//#[inline]
 fn mov_glob_store_b(disp: Operand, cpu: &mut Cpu, mem: &mut Memory) {
-    assert!(disp.is_displacement());
+    debug_assert!(disp.is_displacement());
 
     let address = disp.unwrap() as usize + cpu.gbr.value as usize;
     mem.write_u8(address, cpu[Operand::RegisterOperand(0)].value as u8);
 }
 
 
-#[inline]
+//#[inline]
 fn mov_glob_store_w(disp: Operand, cpu: &mut Cpu, mem: &mut Memory) {
-    assert!(disp.is_displacement());
+    debug_assert!(disp.is_displacement());
 
     let address = disp.unwrap() as usize * 2 + cpu.gbr.value as usize;
     mem.write_u16(address, cpu[Operand::RegisterOperand(0)].value as u16);
 }
 
 
-#[inline]
+//#[inline]
 fn mov_glob_store_l(disp: Operand, cpu: &mut Cpu, mem: &mut Memory) {
-    assert!(disp.is_displacement());
+    debug_assert!(disp.is_displacement());
 
     let address = disp.unwrap() as usize * 4 + cpu.gbr.value as usize;
     mem.write_u32(address, cpu[Operand::RegisterOperand(0)].value);
 }
 
-#[inline]
+//#[inline]
 fn mov_a(disp: Operand, cpu: &mut Cpu) {
-    assert!(disp.is_displacement());
+    debug_assert!(disp.is_displacement());
 
     let address = disp.unwrap() as usize * 4 + (cpu.pc & 0xFFFFFFFC) + 4;
     let r0 = Operand::RegisterOperand(0);
@@ -1176,10 +1176,10 @@ fn mov_a(disp: Operand, cpu: &mut Cpu) {
     cpu[r0].value = address as u32;
 }
 
-#[inline]
+//#[inline]
 fn swapb(dest: Operand, src: Operand, cpu: &mut Cpu) {
-    assert!(dest.is_register());
-    assert!(src.is_register());
+    debug_assert!(dest.is_register());
+    debug_assert!(src.is_register());
 
     let temp0 = cpu[src].value & 0xFFFF0000;
     let temp1 = (cpu[src].value & 0x000000FF) << 8;
@@ -1187,94 +1187,94 @@ fn swapb(dest: Operand, src: Operand, cpu: &mut Cpu) {
     cpu[dest].value = cpu[dest].value | temp0 | temp1;
 }
 
-#[inline]
+//#[inline]
 fn swapw(dest: Operand, src: Operand, cpu: &mut Cpu) {
-    assert!(dest.is_register());
-    assert!(src.is_register());
+    debug_assert!(dest.is_register());
+    debug_assert!(src.is_register());
 
     let temp = (cpu[src].value >> 16) & 0x0000FFFF;
     cpu[dest].value = (cpu[src].value << 16) | temp;
 }
 
-#[inline]
+//#[inline]
 fn stcgbr(dest: Operand, cpu: &mut Cpu) {
-    assert!(dest.is_register());
+    debug_assert!(dest.is_register());
 
     cpu[dest].value = cpu.gbr.value;
 }
 
-#[inline]
+//#[inline]
 fn stcdbr(dest: Operand, cpu: &mut Cpu) {
-    assert!(dest.is_register());
+    debug_assert!(dest.is_register());
 
     cpu[dest].value = cpu.dbr.value;
 }
 
-#[inline]
+//#[inline]
 fn stcbanked(dest: Operand, reg: u8, cpu: &mut Cpu) {
-    assert!(dest.is_register());
+    debug_assert!(dest.is_register());
 
     cpu[dest].value = cpu.banked(Operand::RegisterOperand(reg)).value;
 }
 
-#[inline]
+//#[inline]
 fn stsmach(dest: Operand, cpu: &mut Cpu) {
-    assert!(dest.is_register());
+    debug_assert!(dest.is_register());
 
     cpu[dest].value = cpu.mach.value;
 }
 
-#[inline]
+//#[inline]
 fn stsmacl(dest: Operand, cpu: &mut Cpu) {
-    assert!(dest.is_register());
+    debug_assert!(dest.is_register());
 
     cpu[dest].value = cpu.macl.value;
 }
 
-#[inline]
+//#[inline]
 fn stslmach(dest: Operand, cpu: &mut Cpu, mem: &mut Memory) {
-    assert!(dest.is_register());
+    debug_assert!(dest.is_register());
 
     cpu[dest].value -= 4;
     mem.write_u32(cpu[dest].value as usize, cpu.mach.value);
 }
 
-#[inline]
+//#[inline]
 fn stslmacl(dest: Operand, cpu: &mut Cpu, mem: &mut Memory) {
-    assert!(dest.is_register());
+    debug_assert!(dest.is_register());
 
     cpu[dest].value -= 4;
     mem.write_u32(cpu[dest].value as usize, cpu.macl.value);
 }
 
-#[inline]
+//#[inline]
 fn stslpr(dest: Operand, cpu: &mut Cpu, mem: &mut Memory) {
-    assert!(dest.is_register());
+    debug_assert!(dest.is_register());
 
     cpu[dest].value -= 4;
     mem.write_u32(cpu[dest].value as usize, cpu.pr as u32);
 }
 
-#[inline]
+//#[inline]
 fn fadd(dest: Operand, src: Operand, cpu: &mut Cpu) {
-    assert!(dest.is_register());
-    assert!(src.is_register());
+    debug_assert!(dest.is_register());
+    debug_assert!(src.is_register());
 
     cpu.fpu_mut(dest).value += cpu.fpu(src).value;
 }
 
-#[inline]
+//#[inline]
 fn fmov(dest: Operand, src: Operand, cpu: &mut Cpu) {
-    assert!(dest.is_register());
-    assert!(src.is_register());
+    debug_assert!(dest.is_register());
+    debug_assert!(src.is_register());
 
     cpu.fpu_mut(dest).value = cpu.fpu(src).value;
 }
 
-#[inline]
+//#[inline]
 fn fmov_load_s4(dest: Operand, src: Operand, cpu: &mut Cpu, mem: &mut Memory) {
-    assert!(dest.is_register());
-    assert!(src.is_register());
+    debug_assert!(dest.is_register());
+    debug_assert!(src.is_register());
 
     let v = mem.read_u32(cpu[src].value as usize);
     unsafe {
@@ -1283,10 +1283,10 @@ fn fmov_load_s4(dest: Operand, src: Operand, cpu: &mut Cpu, mem: &mut Memory) {
     cpu[src].value += 4;
 }
 
-#[inline]
+//#[inline]
 fn fmov_load_d8(dest: Operand, src: Operand, cpu: &mut Cpu, mem: &mut Memory) {
-    assert!(dest.is_register());
-    assert!(src.is_register());
+    debug_assert!(dest.is_register());
+    debug_assert!(src.is_register());
 
     let h = mem.read_u32(cpu[src].value as usize);
     let l = mem.read_u32(cpu[src].value as usize + 4);
@@ -1298,10 +1298,10 @@ fn fmov_load_d8(dest: Operand, src: Operand, cpu: &mut Cpu, mem: &mut Memory) {
     cpu[src].value += 8;
 }
 
-#[inline]
+//#[inline]
 fn fmov_store_s4(dest: Operand, src: Operand, cpu: &mut Cpu, mem: &mut Memory) {
-    assert!(dest.is_register());
-    assert!(src.is_register());
+    debug_assert!(dest.is_register());
+    debug_assert!(src.is_register());
 
     cpu[dest].value -= 4;
     unsafe {
@@ -1311,10 +1311,10 @@ fn fmov_store_s4(dest: Operand, src: Operand, cpu: &mut Cpu, mem: &mut Memory) {
     }
 }
 
-#[inline]
+//#[inline]
 fn fmov_store_d8(dest: Operand, src: Operand, cpu: &mut Cpu, mem: &mut Memory) {
-    assert!(dest.is_register());
-    assert!(src.is_register());
+    debug_assert!(dest.is_register());
+    debug_assert!(src.is_register());
 
     cpu[dest].value -= 8;
     let src1 = Operand::RegisterOperand(src.unwrap() + 1);
@@ -1327,7 +1327,7 @@ fn fmov_store_d8(dest: Operand, src: Operand, cpu: &mut Cpu, mem: &mut Memory) {
     }
 }
 
-#[inline]
+//#[inline]
 fn frchg(cpu: &mut Cpu) {
     cpu.fpscr.value ^= 0x00200000;
 }

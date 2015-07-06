@@ -2,7 +2,7 @@ pub use MappedIO;
 pub use MemoryRange;
 pub use Memory;
 
-pub use std::sync::mpsc::{ Sender, Receiver, channel };
+pub use latest::value::{ Sender, Receiver, channel };
 
 pub struct Dsp {
     pub receiver: Receiver<(usize, Option<u32>)>,
@@ -39,21 +39,22 @@ impl Dsp {
     #[inline(always)]
     pub fn run(&mut self) {
         loop {
-            match self.receiver.recv().unwrap() {
-                (address, Some(value)) => {
+            match self.receiver.recv() {
+                Ok((address, Some(value))) => {
                     match address {
                         0x00702C00 => self.write_av_ctrl(value),
                         _          => ()
                     }
                 },
-                (address, None) => {
+                Ok((address, None)) => {
                     let answer = match address {
                         0x00702C00 => self.read_av_ctrl(),
                         _          => 0
                     };
 
-                    self.sender.send(answer).unwrap();
-                }
+                    self.sender.send(answer);
+                },
+                _ => ()
             }
         }
     }

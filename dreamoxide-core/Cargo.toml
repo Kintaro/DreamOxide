@@ -3,6 +3,10 @@ name = "dreamoxide_core"
 version = "0.1.0"
 authors = ["Simon Wollwage <mail.wollwage@gmail.com>"]
 
+[dependencies]
+latest = "*"
+
 [profile.release]
 opt-level = 3
+debug = true
 lto = true

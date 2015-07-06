@@ -4,8 +4,10 @@ use std::fs::File;
 use std::io::Read;
 use std::usize;
 use std::cmp;
-use std::sync::mpsc::{Sender, Receiver};
+use std::iter;
+use latest::value::{Sender, Receiver};
 
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct MemoryRange(pub usize, pub usize);
 
 impl MemoryRange {
@@ -29,7 +31,7 @@ pub struct MappedIO {
 }
 
 pub struct Memory {
-    pub data : Vec<MemoryField>,
+    pub data : Box<[MemoryField]>,
     pub mapped: Vec<MappedIO>,
     pub min_mapped: usize,
     pub max_mapped: usize
@@ -40,7 +42,8 @@ impl Memory {
     /// of 32 bit, only 26MB are necessary.
     pub fn new() -> Memory {
         Memory {
-            data: (0..0x20000000).map(|_| MemoryField::MemoryCell(0)).collect(),
+            //data: (0..0x20000000).map(|_| MemoryField::MemoryCell(0)).collect(),
+            data: iter::repeat(MemoryField::MemoryCell(0)).take(0x20000000).collect::<Vec<MemoryField>>().into_boxed_slice(),
             mapped: Vec::new(),
             min_mapped: usize::MAX,
             max_mapped: 0
@@ -50,7 +53,7 @@ impl Memory {
     /// Maps the given address to the correct address,
     /// taking care of mirrored areas and removing MMU
     /// flags from the actual pointer.
-    #[inline]
+    //#[inline]
     pub fn map(pointer: usize) -> usize {
         // First remove the 3 most significant bits
         let mapped = pointer & 0x1FFFFFFF;
@@ -66,7 +69,7 @@ impl Memory {
 
     /// A first quick check if the pointer is within a guaranteed
     /// safe region or not.
-    #[inline]
+    //#[inline]
     pub fn is_io_register(&self, pointer: usize) -> bool {
         pointer > self.min_mapped && pointer < self.max_mapped
     }
@@ -76,48 +79,50 @@ impl Memory {
         self.min_mapped = cmp::min(self.min_mapped, mi);
         self.max_mapped = cmp::max(self.max_mapped, ma);
         self.mapped.push(mapped);
+        self.mapped.sort_by(|a, b| a.range.cmp(&b.range));
     }
 
-    #[inline]
+    //#[inline(always)]
     pub fn try_mapped_write(&self, address: usize, value: u32) -> bool {
         let addr = Memory::map(address);
         if !self.is_io_register(addr) { return false; }
         match self.mapped.iter().find(|ref mapped| mapped.range.is_within(addr)) {
             Some(ref mapped_io) => {
-                mapped_io.sender.send((addr, Some(value))).unwrap();
+                mapped_io.sender.send((addr, Some(value)));
                 true
             },
             _ => false
         }
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn try_mapped_read(&self, address: usize) -> Option<u32> {
         let addr = Memory::map(address);
         if !self.is_io_register(addr) { return None; }
+
         match self.mapped.iter().find(|ref mapped| mapped.range.is_within(addr)) {
             Some(ref mapped_io) => {
-                mapped_io.sender.send((addr, None)).unwrap();
-                Some(mapped_io.receiver.recv().unwrap())
+                mapped_io.sender.send((addr, None));
+                Some(mapped_io.receiver.recv().unwrap_or(0))
             },
             _ => None
         }
     }
 
     /// Sign-extends an unsigned byte to a signed integer
-    #[inline]
+    #[inline(always)]
     pub fn sign_extend_u8(val: u8) -> i32 {
         val as i8 as i32
     }
 
     /// Sign-extends an unsigned word to a signed integer
-    #[inline]
+    #[inline(always)]
     pub fn sign_extend_u16(val: u16) -> i32 {
         val as i16 as i32
     }
 
     /// Reads an unsigned byte from memory
-    #[inline]
+    #[inline(always)]
     pub fn read_u8(&self, address: usize) -> u8 {
         let offset = address % 2;
         let val = self.read_u16(address);
@@ -125,12 +130,12 @@ impl Memory {
         ((val & (0xFF << (8 * offset))) >> (8 * offset)) as u8
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn read_i8(&self, address: usize) -> i8 {
         self.read_u8(address) as i8
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn read_u16(&self, address: usize) -> u16 {
         if let Some(v) = self.try_mapped_read(address) {
             return v as u16;
@@ -141,18 +146,26 @@ impl Memory {
         }
     }
 
-    #[inline]
+    #[inline(always)]
+    pub fn read_u16_raw(&self, address: usize) -> u16 {
+        match self.access(address) {
+            &MemoryField::MemoryCell(v) => v,
+            _ => panic!("Can only read from memory cell!")
+        }
+    }
+
+    #[inline(always)]
     pub fn read_u32(&self, address: usize) -> u32 {
         if let Some(v) = self.try_mapped_read(address) {
             return v;
         }
-        let v1 = self.read_u16(address) as u32;
-        let v2 = self.read_u16(address + 2) as u32;
+        let v1 = self.read_u16_raw(address) as u32;
+        let v2 = self.read_u16_raw(address + 2) as u32;
 
         (v2 << 16) | v1
     }
 
-    #[inline]
+    //#[inline(always)]
     pub fn write_u8(&mut self, address: usize, value: u8) {
         if self.try_mapped_write(address, value as u32) {
             return;
@@ -166,7 +179,7 @@ impl Memory {
         *self.access_mut(address) = MemoryField::MemoryCell((v & mask) | w);
     }
 
-    #[inline]
+    //#[inline(always)]
     pub fn write_u16(&mut self, address: usize, value: u16) {
         if self.try_mapped_write(address, value as u32) {
             return;
@@ -174,7 +187,7 @@ impl Memory {
         *self.access_mut(address) = MemoryField::MemoryCell(value);
     }
 
-    #[inline]
+    //#[inline(always)]
     pub fn write_u32(&mut self, address: usize, value: u32) {
         if self.try_mapped_write(address, value) {
             return;
@@ -187,12 +200,12 @@ impl Memory {
         *self.access_mut(address + 2) = v1;
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn access<'a>(&'a self, address: usize) -> &'a MemoryField {
         &self.data[Memory::map(address) / 2]
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn access_mut<'a>(&'a mut self, address: usize) -> &'a mut MemoryField {
         &mut self.data[Memory::map(address) / 2]
     }

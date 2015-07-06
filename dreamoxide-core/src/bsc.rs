@@ -2,7 +2,7 @@ pub use MappedIO;
 pub use MemoryRange;
 pub use Memory;
 
-pub use std::sync::mpsc::{ Sender, Receiver, channel };
+pub use latest::value::{ Sender, Receiver, channel };
 
 pub struct Bsc {
     pub receiver: Receiver<(usize, Option<u32>)>,
@@ -45,8 +45,8 @@ impl Bsc {
     #[inline(always)]
     pub fn run(&mut self) {
         loop {
-            match self.receiver.recv().unwrap() {
-                (address, Some(value)) => {
+            match self.receiver.recv() {
+                Ok((address, Some(value))) => {
                     match address {
                         0x1f80002c => self.write_pctra(value),
                         0x1f800030 => self.write_pdtra(value as u16),
@@ -55,7 +55,7 @@ impl Bsc {
                         _          => ()
                     }
                 },
-                (address, None) => {
+                Ok((address, None)) => {
                     let answer = match address {
                         0x1f80002c => self.pctra,
                         0x1f800030 => self.read_pdtra() as u32,
@@ -64,8 +64,9 @@ impl Bsc {
                         _          => 0
                     };
 
-                    self.sender.send(answer).unwrap();
-                }
+                    self.sender.send(answer);
+                },
+                _ => ()
             }
         }
     }

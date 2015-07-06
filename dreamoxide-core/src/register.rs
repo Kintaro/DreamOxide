@@ -17,6 +17,9 @@ pub struct StatusRegister {
     pub value: u32
 }
 
+const SR_BANKED_BIT : u32 = 1 << 29;
+const SR_PRIVILEGED_BIT : u32 = 1 << 30;
+
 impl StatusRegister {
     pub fn is_user_mode(&self) -> bool {
         self.value & (1 << 30) == 0
@@ -24,12 +27,12 @@ impl StatusRegister {
 
     #[inline(always)]
     pub fn is_privileged(&self) -> bool {
-        self.value & (1 << 30) > 0
+        self.value & SR_PRIVILEGED_BIT > 0
     }
 
     #[inline(always)]
     pub fn is_banked(&self) -> bool {
-        self.value & (1 << 29) > 0
+        self.value & SR_BANKED_BIT > 0
     }
 
     pub fn is_interrupt(&self) -> bool {
